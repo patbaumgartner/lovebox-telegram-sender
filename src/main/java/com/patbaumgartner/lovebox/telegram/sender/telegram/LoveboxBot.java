@@ -138,7 +138,7 @@ public class LoveboxBot extends TelegramLongPollingBot {
         message.setText(text);
         try {
             execute(message);
-            log.debug("Sent message \"{}\" to {}", text, chatId);
+            log.debug("Sent message \"{}\" to {}", text.replaceAll("\n", " "), chatId);
         } catch (TelegramApiException | RuntimeException e) {
             log.error("Failed to send message \"{}\" to {} due to error: {}", text, chatId, e.getMessage());
         }
@@ -152,8 +152,8 @@ public class LoveboxBot extends TelegramLongPollingBot {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z");
         String formattedDateTime = ZonedDateTime.of(statusTripple.middle(), ZoneId.of("Europe/London"))
                 .format(formatter);
-        String caption = String.format("Message with text: \"%s\" status: [%s].\n%s",
-                text != null ? text : "",
+        String caption = String.format("Message: \"%s\" \nStatus: [%s].\nExecuted: %s",
+                text != null ? text.replaceAll("\n", " ") : "",
                 statusTripple.right(),
                 formattedDateTime);
         message.setCaption(caption);
@@ -161,7 +161,7 @@ public class LoveboxBot extends TelegramLongPollingBot {
         Message sentMessage = null;
         try {
             sentMessage = execute(message);
-            log.debug("Sent message \"{}\" to {}", text, chatId);
+            log.debug("Sent message \"{}\" to {}", text.replaceAll("\n", " "), chatId);
         } catch (TelegramApiException | RuntimeException e) {
             log.error("Failed to send message \"{}\" to {} due to error: {}", text, chatId, e.getMessage());
         }
@@ -177,7 +177,7 @@ public class LoveboxBot extends TelegramLongPollingBot {
                 .caption(text).build();
         try {
             execute(editMessage);
-            log.debug("Sent message \"{}\" to {}", text, chatId);
+            log.debug("Sent message \"{}\" to {}", text.replaceAll("\n", " "), chatId);
         } catch (TelegramApiException | RuntimeException e) {
             log.error("Failed to send message \"{}\" to {} due to error: {}", text, chatId, e.getMessage());
         }
