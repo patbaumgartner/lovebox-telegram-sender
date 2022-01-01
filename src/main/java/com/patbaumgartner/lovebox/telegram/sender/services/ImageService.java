@@ -132,15 +132,15 @@ public record ImageService(ResourceLoader resourceLoader) {
         FontMetrics fm = graphics.getFontMetrics();
 
         int lineHeight = fm.getHeight();
-        int yInitialOffset = lines.length * lineHeight;
+        int yInitialOffset = (lines.length - 1) * lineHeight;
 
         int x = 0;
         int y = (fm.getAscent() + (DISPLAY_HEIGHT - (fm.getAscent() + fm.getDescent()) - yInitialOffset) / 2);
 
         for (String line : lines) {
             x = (DISPLAY_WIDTH - fm.stringWidth(line)) / 2;
-            y += lineHeight;
             graphics.drawString(line, x, y);
+            y += lineHeight;
         }
     }
 
