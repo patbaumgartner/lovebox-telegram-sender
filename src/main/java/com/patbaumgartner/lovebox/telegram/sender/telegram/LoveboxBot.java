@@ -75,7 +75,12 @@ public class LoveboxBot extends TelegramLongPollingBot {
             Message message = update.getMessage();
             chatIds.add(message.getChat().getId());
 
-            String text = null;
+            // Suppress Telegrams "/start" command
+            String text = message.getText();
+            if (text != null && text.startsWith("/start")) {
+                return;
+            }
+
             Pair<String, InputStream> imagePair = null;
 
             // Create Lovebox Image
@@ -87,7 +92,6 @@ public class LoveboxBot extends TelegramLongPollingBot {
                 }
 
                 if (message.hasText()) {
-                    text = message.getText();
                     imagePair = imageService.createTextImageToPair(text);
                 }
 
@@ -104,7 +108,7 @@ public class LoveboxBot extends TelegramLongPollingBot {
             loveboxMessageStore.put(statusTripple.left(), statusTripple.right());
 
             // Send/respond Message
-            for (long chatId: chatIds) {
+            for (long chatId : chatIds) {
                 Message sentMessage = sendPhotoMessage(chatId, text, imagePair, statusTripple);
                 telegramMessageStore.put(statusTripple.left(), sentMessage);
             }
