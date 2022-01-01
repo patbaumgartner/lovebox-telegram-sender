@@ -26,6 +26,8 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
@@ -37,10 +39,9 @@ public class LoveboxBot extends TelegramLongPollingBot {
     private final ImageService imageService;
     private final LoveboxService loveboxService;
 
+    private final Set<Long> chatIds = new TreeSet<>();
     private final ConcurrentHashMap<String, String> loveboxMessageStore = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Message> telegramMessageStore = new ConcurrentHashMap<>();
-
-    private long chatId = 0;
 
     @Scheduled(fixedRate = 10_000)
     public void readMessageBox() {
@@ -61,8 +62,8 @@ public class LoveboxBot extends TelegramLongPollingBot {
 
     @Scheduled(fixedRate = 10_000)
     public void receiveWaterfallOfHearts() {
-        if (chatId > 0 && loveboxService.receiveWaterfallOfHearts()) {
-            sendTextMessage(chatId, "You received a waterfall of hearts! ❤❤❤");
+        if (loveboxService.receiveWaterfallOfHearts()) {
+            chatIds.forEach(chatId -> sendTextMessage(chatId, "You received a waterfall of hearts! ❤❤❤"));
         }
     }
 
@@ -72,9 +73,7 @@ public class LoveboxBot extends TelegramLongPollingBot {
 
             // Retrieve Message
             Message message = update.getMessage();
-            if (chatId <= 0) {
-                chatId = message.getChat().getId();
-            }
+            chatIds.add(message.getChat().getId());
 
             String text = null;
             Pair<String, InputStream> imagePair = null;
@@ -105,8 +104,10 @@ public class LoveboxBot extends TelegramLongPollingBot {
             loveboxMessageStore.put(statusTripple.left(), statusTripple.right());
 
             // Send/respond Message
-            Message sentMessage = sendPhotoMessage(chatId, text, imagePair, statusTripple);
-            telegramMessageStore.put(statusTripple.left(), sentMessage);
+            for (long chatId: chatIds) {
+                Message sentMessage = sendPhotoMessage(chatId, text, imagePair, statusTripple);
+                telegramMessageStore.put(statusTripple.left(), sentMessage);
+            }
         }
     }
 
