@@ -13,7 +13,9 @@ import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.*;
+import java.util.Arrays;
 import java.util.Base64;
+import java.util.NoSuchElementException;
 import java.util.Random;
 
 @Slf4j
@@ -105,13 +107,21 @@ public record ImageService(ResourceLoader resourceLoader) {
     }
 
     protected void drawCenteredMessage(Graphics2D graphics, String text) {
+        String message = text.strip();
+
         // Calculate max font
         graphics.setColor(Color.white);
         Font font = new Font(FONT_NAME, Font.BOLD, INITIAL_FONT_SIZE);
         graphics.setFont(font);
         FontMetrics initialFm = graphics.getFontMetrics();
 
-        int stringWidth = initialFm.stringWidth(text) + 2 * BORDER_WIDTH;
+        String[] lines = message.split("\n");
+        // int stringWidth = initialFm.stringWidth(text) + 2 * BORDER_WIDTH;
+        int stringWidth = Arrays.stream(lines)
+                .map(line -> initialFm.stringWidth(line) + 2 * BORDER_WIDTH)
+                .mapToInt(v -> v)
+                .max()
+                .orElseThrow(NoSuchElementException::new);
         double widthRatio = (double) DISPLAY_WIDTH / (double) stringWidth;
 
         int newFontSize = (int) (initialFm.getFont().getSize() * widthRatio);
@@ -120,9 +130,18 @@ public record ImageService(ResourceLoader resourceLoader) {
 
         // Draw centered string
         FontMetrics fm = graphics.getFontMetrics();
-        int x = (DISPLAY_WIDTH - fm.stringWidth(text)) / 2;
-        int y = (fm.getAscent() + (DISPLAY_HEIGHT - (fm.getAscent() + fm.getDescent())) / 2);
-        graphics.drawString(text, x, y);
+
+        int lineHeight = fm.getHeight();
+        int yInitialOffset = lines.length * lineHeight;
+
+        int x = 0;
+        int y = (fm.getAscent() + (DISPLAY_HEIGHT - (fm.getAscent() + fm.getDescent()) - yInitialOffset) / 2);
+
+        for (String line : lines) {
+            x = (DISPLAY_WIDTH - fm.stringWidth(line)) / 2;
+            y += lineHeight;
+            graphics.drawString(line, x, y);
+        }
     }
 
     protected Pair constructImagePair(BufferedImage image) throws IOException {
