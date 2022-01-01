@@ -14,10 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -124,7 +121,8 @@ public record LoveboxService(
 
             return new Tripple<>(id, sentTime, status);
         }
-        return null;
+        // When not calling the Lovebox API, we need to fake the message.
+        return new Tripple<>(UUID.randomUUID().toString(), LocalDateTime.now(), "sending disabled");
     }
 
     @SneakyThrows
