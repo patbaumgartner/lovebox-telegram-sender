@@ -52,11 +52,6 @@
             <artifactId>imgscalr-lib</artifactId>
             <version>${imgscalr.version}</version>
         </dependency>
-        <dependency>
-            <groupId>com.kcthota</groupId>
-            <artifactId>emoji4j</artifactId>
-            <version>${emoji4j.version}</version>
-        </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
