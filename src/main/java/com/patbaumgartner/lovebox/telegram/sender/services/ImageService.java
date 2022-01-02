@@ -1,7 +1,6 @@
 package com.patbaumgartner.lovebox.telegram.sender.services;
 
 import com.patbaumgartner.lovebox.telegram.sender.utils.Pair;
-import emoji4j.EmojiUtils;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.imgscalr.Scalr;
@@ -26,7 +25,9 @@ public record ImageService(ResourceLoader resourceLoader) {
     public static final int DISPLAY_HEIGHT = 960;
     public static final int BORDER_WIDTH = 20;
     public static final int INITIAL_FONT_SIZE = 18;
-    public static final String FONT_NAME = "DejaVu Sans Mono";
+    // Emoji Font Limitations: https://mail.openjdk.java.net/pipermail/2d-dev/2021-May/012975.html
+    public static final int MAX_EMOJI_FONT_SIZE = 100;
+    public static final String FONT_NAME = "Arial";
 
     @SneakyThrows
     public Pair<String, InputStream> resizeImageToPair(File file, String text) {
@@ -64,15 +65,6 @@ public record ImageService(ResourceLoader resourceLoader) {
         BufferedImage image = new BufferedImage(DISPLAY_WIDTH, DISPLAY_HEIGHT, BufferedImage.TYPE_INT_ARGB);
         Graphics2D graphics = image.createGraphics();
 
-        // Reading message and fixing emojis
-        String text = message;
-        try {
-            text = EmojiUtils.shortCodify(message);
-        } catch (Exception | Error e) {
-            // Suppress exception
-            log.error("Exception occurred: {}", e.getMessage(), e);
-        }
-
         // Set background color
         Random rnd = new Random();
         int red = rnd.nextInt(256);
@@ -82,8 +74,8 @@ public record ImageService(ResourceLoader resourceLoader) {
         graphics.setColor(color);
         graphics.fillRect(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT);
 
-        if (text != null) {
-            drawCenteredMessage(graphics, text);
+        if (message != null) {
+            drawCenteredMessage(graphics, message);
         }
 
         graphics.dispose();
@@ -111,7 +103,7 @@ public record ImageService(ResourceLoader resourceLoader) {
 
         // Calculate max font
         graphics.setColor(Color.white);
-        Font font = new Font(FONT_NAME, Font.BOLD, INITIAL_FONT_SIZE);
+        Font font = new Font(FONT_NAME, Font.PLAIN, INITIAL_FONT_SIZE);
         graphics.setFont(font);
         FontMetrics initialFm = graphics.getFontMetrics();
 
@@ -124,9 +116,11 @@ public record ImageService(ResourceLoader resourceLoader) {
                 .orElseThrow(NoSuchElementException::new);
         double widthRatio = (double) DISPLAY_WIDTH / (double) stringWidth;
 
-        int newFontSize = (int) (initialFm.getFont().getSize() * widthRatio);
-        int fontSizeToUse = Math.min(newFontSize, DISPLAY_HEIGHT);
-        graphics.setFont(new Font(initialFm.getFont().getName(), Font.PLAIN, fontSizeToUse));
+        Font InitialFont = initialFm.getFont();
+        int newFontSize = (int) (InitialFont.getSize() * widthRatio);
+        int fontSizeToUse = Math.min(newFontSize, MAX_EMOJI_FONT_SIZE);
+        Font newFont = new Font(InitialFont.getName(), InitialFont.getStyle(), fontSizeToUse);
+        graphics.setFont(newFont);
 
         // Draw centered string
         FontMetrics fm = graphics.getFontMetrics();
