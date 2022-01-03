@@ -27,7 +27,7 @@ public record ImageService(ResourceLoader resourceLoader) {
     public static final int INITIAL_FONT_SIZE = 18;
     // Emoji Font Limitations: https://mail.openjdk.java.net/pipermail/2d-dev/2021-May/012975.html
     public static final int MAX_EMOJI_FONT_SIZE = 100;
-    public static final String FONT_NAME = "Arial";
+    public static final String FONT_NAME = "Sans";
 
     @SneakyThrows
     public Pair<String, InputStream> resizeImageToPair(File file, String text) {
@@ -101,29 +101,31 @@ public record ImageService(ResourceLoader resourceLoader) {
     protected void drawCenteredMessage(Graphics2D graphics, String text) {
         String message = text.strip();
 
+        FontMetrics initialFm = graphics.getFontMetrics();
+        log.debug("Using initial font with settings: {}", initialFm);
+
         // Calculate max font
         graphics.setColor(Color.white);
-        Font font = new Font(FONT_NAME, Font.PLAIN, INITIAL_FONT_SIZE);
-        graphics.setFont(font);
-        FontMetrics initialFm = graphics.getFontMetrics();
-
+        Font newFont = new Font(FONT_NAME, Font.PLAIN, INITIAL_FONT_SIZE);
+        graphics.setFont(newFont);
+        FontMetrics newFm = graphics.getFontMetrics();
         String[] lines = message.split("\n");
         // int stringWidth = initialFm.stringWidth(text) + 2 * BORDER_WIDTH;
         int stringWidth = Arrays.stream(lines)
-                .map(line -> initialFm.stringWidth(line) + 2 * BORDER_WIDTH)
+                .map(line -> newFm.stringWidth(line) + 2 * BORDER_WIDTH)
                 .mapToInt(v -> v)
                 .max()
                 .orElseThrow(NoSuchElementException::new);
         double widthRatio = (double) DISPLAY_WIDTH / (double) stringWidth;
 
-        Font InitialFont = initialFm.getFont();
-        int newFontSize = (int) (InitialFont.getSize() * widthRatio);
+        int newFontSize = (int) (newFont.getSize() * widthRatio);
         int fontSizeToUse = Math.min(newFontSize, MAX_EMOJI_FONT_SIZE);
-        Font newFont = new Font(InitialFont.getName(), InitialFont.getStyle(), fontSizeToUse);
-        graphics.setFont(newFont);
+        Font finalFont = new Font(newFont.getName(), newFont.getStyle(), fontSizeToUse);
+        graphics.setFont(finalFont);
 
         // Draw centered string
         FontMetrics fm = graphics.getFontMetrics();
+        log.debug("Using new/recalculated font with settings: {}", fm);
 
         int lineHeight = fm.getHeight();
         int yInitialOffset = (lines.length - 1) * lineHeight;
