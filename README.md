@@ -5,9 +5,6 @@
 The app allows to send messages via Telegram Bot to a single Lovebox instance. Text messages and photos with captions
 are supported. Other message types (e.g. Stickers, Audio, etc.) will lead to a default message.
 
-_**Known Issues:** Currently Emojis can not be drawn on a Graphics2d canvas. Therefore Emojis are translated to a text
-representation._
-
 ## Application Setup
 
 To set up the app a few ids and values need to be retrieved on the Lovebox API. The following curl commands help to find
