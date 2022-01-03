@@ -3,13 +3,16 @@ FROM paketobuildpacks/run:base-cnb
 USER root
 
 ## Idea from: https://blog.adoptopenjdk.net/2021/01/prerequisites-for-font-support-in-adoptopenjdk/
-
-RUN echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | debconf-set-selections
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
-    libfreetype6 \
+    wget \
     fontconfig \
-    ttf-mscorefonts-installer \
   && rm -rf /var/lib/apt/lists/*
+
+# Install Noto Emoji Manually
+RUN mkdir -p /usr/share/fonts/truetype/noto \
+    && cd /usr/share/fonts/truetype/noto \
+    && wget https://raw.githubusercontent.com/googlefonts/noto-emoji/master/fonts/NotoEmoji-Regular.ttf \
+    && fc-cache -fv
 
 USER cnb
