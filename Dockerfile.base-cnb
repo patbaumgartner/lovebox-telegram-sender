@@ -12,7 +12,7 @@ RUN apt-get update \
 # Install Noto Emoji Manually
 RUN mkdir -p /usr/share/fonts/truetype/noto \
     && cd /usr/share/fonts/truetype/noto \
-    && wget https://raw.githubusercontent.com/googlefonts/noto-emoji/master/fonts/NotoEmoji-Regular.ttf \
+    && wget https://github.com/googlefonts/noto-emoji/raw/9a5261d871451f9b5183c93483cbd68ed916b1e9/fonts/NotoEmoji-Regular.ttf \
     && fc-cache -fv
 
 USER cnb
