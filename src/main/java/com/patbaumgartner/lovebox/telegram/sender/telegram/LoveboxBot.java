@@ -10,6 +10,8 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -40,7 +42,7 @@ public class LoveboxBot extends TelegramLongPollingBot {
 
     private final Set<Long> chatIds = new TreeSet<>();
     private final ConcurrentHashMap<String, String> loveboxMessageStore = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Message> telegramMessageStore = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Collection<Pair<Long, Message>>> telegramMessageStore = new ConcurrentHashMap<>();
 
     @Scheduled(fixedRate = 10_000)
     public void readMessageBox() {
@@ -48,9 +50,12 @@ public class LoveboxBot extends TelegramLongPollingBot {
         messages.forEach(p -> {
             loveboxMessageStore.computeIfPresent(p.left(), (key, value) -> {
                 if (!value.equals(p.right())) {
-                    Message message = telegramMessageStore.get(p.left());
-                    if (message != null) {
-                        updatePhotoMessageCaption(message, p.right());
+                    Collection<Pair<Long, Message>> pairs = telegramMessageStore.get(p.left());
+                    for (Pair<Long, Message> pair : pairs) {
+                        Message message = pair.right();
+                        if (message != null) {
+                            updatePhotoMessageCaption(message, p.right());
+                        }
                     }
                 }
                 return value;
@@ -109,7 +114,8 @@ public class LoveboxBot extends TelegramLongPollingBot {
             // Send/respond Message
             for (long chatId : chatIds) {
                 Message sentMessage = sendPhotoMessage(chatId, text, imagePair, statusTripple);
-                telegramMessageStore.putIfAbsent(statusTripple.left(), sentMessage);
+                telegramMessageStore.compute(statusTripple.left(), (key, value) -> (value == null) ? new ArrayList<>() : value)
+                    .add(new Pair<>(chatId, sentMessage));
             }
         }
     }
