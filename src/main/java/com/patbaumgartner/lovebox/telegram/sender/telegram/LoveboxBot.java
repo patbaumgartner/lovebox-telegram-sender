@@ -4,8 +4,8 @@ import com.patbaumgartner.lovebox.telegram.sender.services.ImageService;
 import com.patbaumgartner.lovebox.telegram.sender.services.LoveboxService;
 import com.patbaumgartner.lovebox.telegram.sender.utils.Pair;
 import com.patbaumgartner.lovebox.telegram.sender.utils.Tripple;
+import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -45,7 +45,7 @@ public class LoveboxBot extends TelegramLongPollingBot {
     @Scheduled(fixedRate = 10_000)
     public void readMessageBox() {
         List<Pair<String, String>> messages = loveboxService.getMessagesByBox();
-        messages.stream().forEach(p -> {
+        messages.forEach(p -> {
             loveboxMessageStore.computeIfPresent(p.left(), (key, value) -> {
                 if (!value.equals(p.right())) {
                     Message message = telegramMessageStore.get(p.left());
@@ -80,7 +80,7 @@ public class LoveboxBot extends TelegramLongPollingBot {
                 return;
             }
 
-            Pair<String, InputStream> imagePair = null;
+            Pair<String, byte[]> imagePair = null;
 
             // Create Lovebox Image
             try {
@@ -109,7 +109,7 @@ public class LoveboxBot extends TelegramLongPollingBot {
             // Send/respond Message
             for (long chatId : chatIds) {
                 Message sentMessage = sendPhotoMessage(chatId, text, imagePair, statusTripple);
-                telegramMessageStore.put(statusTripple.left(), sentMessage);
+                telegramMessageStore.putIfAbsent(statusTripple.left(), sentMessage);
             }
         }
     }
@@ -143,10 +143,10 @@ public class LoveboxBot extends TelegramLongPollingBot {
         }
     }
 
-    protected Message sendPhotoMessage(long chatId, String text, Pair<String, InputStream> imagePair, Tripple<String, LocalDateTime, String> statusTripple) {
+    protected Message sendPhotoMessage(long chatId, String text, Pair<String, byte[]> imagePair, Tripple<String, LocalDateTime, String> statusTripple) {
         SendPhoto message = new SendPhoto();
         message.setChatId(String.valueOf(chatId));
-        message.setPhoto(new InputFile(imagePair.right(), "image.png"));
+        message.setPhoto(new InputFile(new ByteArrayInputStream(imagePair.right()), "image.png"));
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z");
         String formattedDateTime = ZonedDateTime.of(statusTripple.middle(), ZoneId.of("Europe/London"))

@@ -2,13 +2,16 @@
 
 # Lovebox Telegram Sender
 
-The app allows to send messages via Telegram Bot to a single Lovebox instance. Text messages and photos with captions
+The app allows to send messages via Telegram Bot to a single Lovebox instance. Text messages and
+photos with captions
 are supported. Other message types (e.g. Stickers, Audio, etc.) will lead to a default message.
 
 ## Application Setup
 
-To set up the app a few ids and values need to be retrieved on the Lovebox API. The following curl commands help to find
-the needed data on an existing account. Make sure you have set up your account via the Android or iOS app already.
+To set up the app a few ids and values need to be retrieved on the Lovebox API. The following curl
+commands help to find
+the needed data on an existing account. Make sure you have set up your account via the Android or
+iOS app already.
 
 ### Login with Password
 
@@ -129,15 +132,18 @@ curl --location --request POST 'https://app-api.loveboxlove.com/v1/graphql' \
 
 ### Setting up a Telegram Bot
 
-To create a chatbot on Telegram, you need to contact the [@BotFather](https://telegram.me/BotFather), which is a bot
+To create a chatbot on Telegram, you need to contact the [@BotFather](https://telegram.me/BotFather)
+, which is a bot
 used to create other bots.
 
-The command you need is `/newbot` which leads to the next steps to create your bot. Follow the instructions and get the
+The command you need is `/newbot` which leads to the next steps to create your bot. Follow the
+instructions and get the
 bot `username`, and `token`.
 
 ### Adjusting SpringBoot's application.properties
 
-Running the app from the source needs adjustments according to your settings. Adjusting the `application.properties`
+Running the app from the source needs adjustments according to your settings. Adjusting
+the `application.properties`
 in the sources or passing them as Java options or CLI arguments to the app.
 
 ```properties
@@ -157,7 +163,8 @@ bot.token=4072971853:ABEojZ42uNA6YYn_c7DF8RH0UOorqXuveSQ
 
 ### Setting Environment Variables e.g. for Docker
 
-The folling snippet can be passed as `.env` and read by the `docker-compose.yml` or used to be passed directly to the
+The folling snippet can be passed as `.env` and read by the `docker-compose.yml` or used to be
+passed directly to the
 `docker run` command.
 
 ```bash
@@ -201,7 +208,8 @@ mvn spring-boot:build-image \
 
 ### Fixing Known Issues with Missing Fonts
 
-Since the app uses fonts, we need to make sure that fonts are part of the docker container. The containers produced
+Since the app uses fonts, we need to make sure that fonts are part of the docker container. The
+containers produced
 above throw and exception when using them
 `java.lang.NullPointerException: Cannot load from short array because "sun.awt.FontConfiguration.head" is null`
 
@@ -209,8 +217,10 @@ above throw and exception when using them
 post [Prerequisites for Font Support in AdoptOpenJDK
 ](https://blog.adoptopenjdk.net/2021/01/prerequisites-for-font-support-in-adoptopenjdk/).
 
-After more research, it seems that the only solution to add fonts to the buildpack base image is to create a OCI run
-image by extending the base one. See the `Dockerfile.base-cnb` file how a patch with the additional font packages might
+After more research, it seems that the only solution to add fonts to the buildpack base image is to
+create a OCI run
+image by extending the base one. See the `Dockerfile.base-cnb` file how a patch with the additional
+font packages might
 look like.
 
 Build the `runImage` locally with the following command.
@@ -219,14 +229,16 @@ Build the `runImage` locally with the following command.
 docker build --no-cache -f Dockerfile.base-cnb -t patbaumgartner/run:base-cnb .
 ```
 
-Since we run the pull policy in the `mvn spring-boot:build-image` command with IF_NOT_PRESENT, we need to make sure that
+Since we run the pull policy in the `mvn spring-boot:build-image` command with IF_NOT_PRESENT, we
+need to make sure that
 the newest version of the builder is locally available.
 
 ``` bash
 docker pull paketobuildpacks/builder:base
 ```
 
-Finally, passing to the `spring-boot-maven-plugin` the `runImage` to build the docker container containing the fonts.
+Finally, passing to the `spring-boot-maven-plugin` the `runImage` to build the docker container
+containing the fonts.
 
 ```bash
 mvn spring-boot:build-image \
@@ -239,8 +251,10 @@ mvn spring-boot:build-image \
 
 ## Credits
 
-Reverse engineering (unpinning certificates) was done with [APKLab](https://github.com/APKLab/APKLab) and
-the [Lovebox APK](https://www.apkmonk.com/app/love.lovebox.loveboxapp/) provided by [apkmonk](https://www.apkmonk.com).
+Reverse engineering (unpinning certificates) was done
+with [APKLab](https://github.com/APKLab/APKLab) and
+the [Lovebox APK](https://www.apkmonk.com/app/love.lovebox.loveboxapp/) provided
+by [apkmonk](https://www.apkmonk.com).
 Postman was used to capture the REST calls from the mobile app. The
 article [Capturing Http Requests](https://learning.postman.com/docs/sending-requests/capturing-request-data/capturing-http-requests/)
 covers everything needed. After a Postman
