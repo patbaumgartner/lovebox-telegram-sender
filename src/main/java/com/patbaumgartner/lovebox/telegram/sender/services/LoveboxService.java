@@ -4,23 +4,32 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.patbaumgartner.lovebox.telegram.sender.rest.clients.*;
+import com.patbaumgartner.lovebox.telegram.sender.rest.clients.CheckEmailRequestBody;
+import com.patbaumgartner.lovebox.telegram.sender.rest.clients.CheckEmailResponseBody;
+import com.patbaumgartner.lovebox.telegram.sender.rest.clients.GraphqlRequestBody;
+import com.patbaumgartner.lovebox.telegram.sender.rest.clients.LoginWithPasswordResponseBody;
+import com.patbaumgartner.lovebox.telegram.sender.rest.clients.LoginWithPasswordlRequestBody;
+import com.patbaumgartner.lovebox.telegram.sender.rest.clients.LoveboxRestClient;
+import com.patbaumgartner.lovebox.telegram.sender.rest.clients.LoveboxRestClientProperties;
 import com.patbaumgartner.lovebox.telegram.sender.utils.Pair;
 import com.patbaumgartner.lovebox.telegram.sender.utils.Tripple;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
-
 @Slf4j
 @Service
 public record LoveboxService(
-        LoveboxRestClientProperties restClientProperties,
-        LoveboxRestClient restClient) {
+    LoveboxRestClientProperties restClientProperties,
+    LoveboxRestClient restClient) {
 
     public void checkIfUserExists() {
         // Check email user
@@ -76,7 +85,8 @@ public record LoveboxService(
     public String loginAndResolveToken() {
         // Login with password and get token
         if (restClientProperties.isEnabled()) {
-            ResponseEntity<LoginWithPasswordResponseBody> loginWithPasswordResponse = restClient.loginWithPassword(new LoginWithPasswordlRequestBody(restClientProperties.getEmail(), restClientProperties.getPassword()));
+            ResponseEntity<LoginWithPasswordResponseBody> loginWithPasswordResponse = restClient.loginWithPassword(
+                new LoginWithPasswordlRequestBody(restClientProperties.getEmail(), restClientProperties.getPassword()));
             log.debug("Login with password response: {}", loginWithPasswordResponse);
             return loginWithPasswordResponse.getBody().token();
         }
@@ -109,10 +119,10 @@ public record LoveboxService(
 
             JsonElement jsonRoot = JsonParser.parseString(sendPixNoteResponse.getBody());
             JsonObject sendPixNote = jsonRoot.getAsJsonObject()
-                    .get("data").getAsJsonObject()
-                    .get("sendPixNote").getAsJsonObject();
+                .get("data").getAsJsonObject()
+                .get("sendPixNote").getAsJsonObject();
             JsonObject stati = sendPixNote
-                    .get("statusList").getAsJsonArray().get(0).getAsJsonObject();
+                .get("statusList").getAsJsonArray().get(0).getAsJsonObject();
 
             String id = sendPixNote.get("_id").getAsString();
             String status = stati.get("label").getAsString();
@@ -178,14 +188,15 @@ public record LoveboxService(
             getMessagesByBoxQueryVariables.put("relationId", restClientProperties.getRelationId());
             getMessagesByBoxQueryVariables.put("messagesShown", 0);
 
-            GraphqlRequestBody getMessagesByBoxGraphqlRequestBody = new GraphqlRequestBody("getMessagesByBox", getMessagesByBoxQueryVariables, getMessagesByBoxQuery);
+            GraphqlRequestBody getMessagesByBoxGraphqlRequestBody = new GraphqlRequestBody("getMessagesByBox", getMessagesByBoxQueryVariables,
+                getMessagesByBoxQuery);
             ResponseEntity<String> getMessagesByBoxResponse = restClient.graphql("Bearer " + token, getMessagesByBoxGraphqlRequestBody);
             log.debug("Get messages by box response: {}", getMessagesByBoxResponse);
 
             JsonElement jsonRoot = JsonParser.parseString(getMessagesByBoxResponse.getBody());
             JsonArray getMessagesByBox = jsonRoot.getAsJsonObject()
-                    .get("data").getAsJsonObject()
-                    .get("getMessagesByBox").getAsJsonArray();
+                .get("data").getAsJsonObject()
+                .get("getMessagesByBox").getAsJsonArray();
 
             getMessagesByBox.forEach(m -> {
                 JsonObject message = m.getAsJsonObject();
