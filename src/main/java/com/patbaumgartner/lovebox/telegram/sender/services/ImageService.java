@@ -1,21 +1,28 @@
 package com.patbaumgartner.lovebox.telegram.sender.services;
 
 import com.patbaumgartner.lovebox.telegram.sender.utils.Pair;
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics2D;
+import java.awt.Image;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.NoSuchElementException;
+import java.util.Random;
+import javax.imageio.ImageIO;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.imgscalr.Scalr;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
-
-import javax.imageio.ImageIO;
-import java.awt.*;
-import java.awt.image.BufferedImage;
-import java.io.*;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.NoSuchElementException;
-import java.util.Random;
 
 @Slf4j
 @Component
@@ -33,13 +40,13 @@ public record ImageService(ResourceLoader resourceLoader) {
     public Pair<String, InputStream> resizeImageToPair(File file, String text) {
         BufferedImage originalImage = ImageIO.read(file);
         BufferedImage resizedImage =
-                Scalr.resize(
-                        originalImage,
-                        Scalr.Method.AUTOMATIC,
-                        Scalr.Mode.AUTOMATIC,
-                        DISPLAY_WIDTH,
-                        DISPLAY_HEIGHT,
-                        Scalr.OP_ANTIALIAS);
+            Scalr.resize(
+                originalImage,
+                Scalr.Method.AUTOMATIC,
+                Scalr.Mode.AUTOMATIC,
+                DISPLAY_WIDTH,
+                DISPLAY_HEIGHT,
+                Scalr.OP_ANTIALIAS);
 
         BufferedImage image = new BufferedImage(DISPLAY_WIDTH, DISPLAY_HEIGHT, BufferedImage.TYPE_INT_ARGB);
         Graphics2D graphics = image.createGraphics();
@@ -112,10 +119,10 @@ public record ImageService(ResourceLoader resourceLoader) {
         String[] lines = message.split("\n");
         // int stringWidth = initialFm.stringWidth(text) + 2 * BORDER_WIDTH;
         int stringWidth = Arrays.stream(lines)
-                .map(line -> newFm.stringWidth(line) + 2 * BORDER_WIDTH)
-                .mapToInt(v -> v)
-                .max()
-                .orElseThrow(NoSuchElementException::new);
+            .map(line -> newFm.stringWidth(line) + 2 * BORDER_WIDTH)
+            .mapToInt(v -> v)
+            .max()
+            .orElseThrow(NoSuchElementException::new);
         double widthRatio = (double) DISPLAY_WIDTH / (double) stringWidth;
 
         int newFontSize = (int) (newFont.getSize() * widthRatio);
