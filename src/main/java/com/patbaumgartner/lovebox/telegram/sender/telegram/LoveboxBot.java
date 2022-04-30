@@ -4,6 +4,16 @@ import com.patbaumgartner.lovebox.telegram.sender.services.ImageService;
 import com.patbaumgartner.lovebox.telegram.sender.services.LoveboxService;
 import com.patbaumgartner.lovebox.telegram.sender.utils.Pair;
 import com.patbaumgartner.lovebox.telegram.sender.utils.Tripple;
+import java.io.File;
+import java.io.InputStream;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -18,17 +28,6 @@ import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.PhotoSize;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
-
-import java.io.File;
-import java.io.InputStream;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Component
@@ -151,11 +150,11 @@ public class LoveboxBot extends TelegramLongPollingBot {
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z");
         String formattedDateTime = ZonedDateTime.of(statusTripple.middle(), ZoneId.of("Europe/London"))
-                .format(formatter);
+            .format(formatter);
         String caption = String.format("Message: \"%s\" \nStatus: [%s].\nExecuted: %s",
-                text != null ? text.replaceAll("\n", " ") : "",
-                statusTripple.right(),
-                formattedDateTime);
+            text != null ? text.replaceAll("\n", " ") : "",
+            statusTripple.right(),
+            formattedDateTime);
         message.setCaption(caption);
 
         Message sentMessage = null;
@@ -172,9 +171,9 @@ public class LoveboxBot extends TelegramLongPollingBot {
         String text = message.getCaption().replaceAll("\\[.*\\]\\.", "[" + status + "].");
         String chatId = String.valueOf(message.getChatId());
         EditMessageCaption editMessage = EditMessageCaption.builder()
-                .messageId(message.getMessageId())
-                .chatId(chatId)
-                .caption(text).build();
+            .messageId(message.getMessageId())
+            .chatId(chatId)
+            .caption(text).build();
         try {
             execute(editMessage);
             log.debug("Sent message \"{}\" to {}", text.replaceAll("\n", " "), chatId);
