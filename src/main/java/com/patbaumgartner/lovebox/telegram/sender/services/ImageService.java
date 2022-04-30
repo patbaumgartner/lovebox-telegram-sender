@@ -7,11 +7,9 @@ import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.Image;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.NoSuchElementException;
@@ -37,7 +35,7 @@ public record ImageService(ResourceLoader resourceLoader) {
     public static final String FONT_NAME = "Sans";
 
     @SneakyThrows
-    public Pair<String, InputStream> resizeImageToPair(File file, String text) {
+    public Pair<String, byte[]> resizeImageToPair(File file, String text) {
         BufferedImage originalImage = ImageIO.read(file);
         BufferedImage resizedImage =
             Scalr.resize(
@@ -68,7 +66,7 @@ public record ImageService(ResourceLoader resourceLoader) {
     }
 
     @SneakyThrows
-    public Pair<String, InputStream> createTextImageToPair(String message) {
+    public Pair<String, byte[]> createTextImageToPair(String message) {
         BufferedImage image = new BufferedImage(DISPLAY_WIDTH, DISPLAY_HEIGHT, BufferedImage.TYPE_INT_ARGB);
         Graphics2D graphics = image.createGraphics();
 
@@ -91,7 +89,7 @@ public record ImageService(ResourceLoader resourceLoader) {
     }
 
     @SneakyThrows
-    public Pair<String, InputStream> createFixedImageToPair() {
+    public Pair<String, byte[]> createFixedImageToPair() {
         Resource resource = resourceLoader.getResource("lovebox.jpeg");
         Image image = ImageIO.read(resource.getInputStream());
         image = image.getScaledInstance(DISPLAY_WIDTH, DISPLAY_HEIGHT, Image.SCALE_SMOOTH);
@@ -147,11 +145,11 @@ public record ImageService(ResourceLoader resourceLoader) {
         }
     }
 
-    protected Pair constructImagePair(BufferedImage image) throws IOException {
+    protected Pair<String, byte[]> constructImagePair(BufferedImage image) throws IOException {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         ImageIO.write(image, "png", output);
         String base64Image = Base64.getEncoder().encodeToString(output.toByteArray());
 
-        return new Pair("data:image/png;base64," + base64Image, new ByteArrayInputStream(output.toByteArray()));
+        return new Pair("data:image/png;base64," + base64Image, output.toByteArray());
     }
 }
