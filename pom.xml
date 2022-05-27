@@ -26,7 +26,7 @@
         <emoji4j.version>6.0</emoji4j.version>
         <imgscalr.version>4.2</imgscalr.version>
         <java.version>17</java.version>
-        <spring-cloud.version>2021.0.2</spring-cloud.version>
+        <spring-cloud.version>2021.0.3</spring-cloud.version>
         <telegrambots-spring-boot-starter.version>6.0.1</telegrambots-spring-boot-starter.version>
     </properties>
 
