@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -27,9 +28,11 @@ import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
-public record LoveboxService(
-    LoveboxRestClientProperties restClientProperties,
-    LoveboxRestClient restClient) {
+@RequiredArgsConstructor
+public class LoveboxService {
+
+    private final LoveboxRestClientProperties restClientProperties;
+    private final LoveboxRestClient restClient;
 
     public void checkIfUserExists() {
         // Check email user
