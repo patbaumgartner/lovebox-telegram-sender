@@ -15,6 +15,7 @@ import java.util.Base64;
 import java.util.NoSuchElementException;
 import java.util.Random;
 import javax.imageio.ImageIO;
+import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.imgscalr.Scalr;
@@ -24,7 +25,8 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-public record ImageService(ResourceLoader resourceLoader) {
+@RequiredArgsConstructor
+public class ImageService {
 
     public static final int DISPLAY_WIDTH = 1280;
     public static final int DISPLAY_HEIGHT = 960;
@@ -33,6 +35,8 @@ public record ImageService(ResourceLoader resourceLoader) {
     // Emoji Font Limitations: https://mail.openjdk.java.net/pipermail/2d-dev/2021-May/012975.html
     public static final int MAX_EMOJI_FONT_SIZE = 100;
     public static final String FONT_NAME = "Sans";
+
+    public final ResourceLoader resourceLoader;
 
     @SneakyThrows
     public Pair<String, byte[]> resizeImageToPair(File file, String text) {
