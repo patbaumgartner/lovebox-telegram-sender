@@ -140,31 +140,29 @@ public class LoveboxService {
 
     @SneakyThrows
     public boolean receiveWaterfallOfHearts() {
-        boolean getHeartsRain2 = false;
+        boolean getHeartsRainByBox = false;
 
         if (restClientProperties.isEnabled()) {
             String token = loginAndResolveToken();
 
             // Get hearts rain
-            String getHeartsRain2Query = "query getHeartsRain2($boxesIds: [String]) {\n  getHeartsRain2(boxesIds: $boxesIds)\n}\n";
-            Map<String, Object> getHeartsRain2QueryVariables = new HashMap<>();
-            List<String> boxesIds = new ArrayList<>();
-            boxesIds.add(restClientProperties.getBoxId());
-            getHeartsRain2QueryVariables.put("boxesIds", boxesIds);
+            String getHeartsRainByBoxQuery = "query getHeartsRainByBox($boxId: String!) {\n  getHeartsRainByBox(boxId: $boxId)\n}\n";
+            Map<String, Object> getHeartsRainByBoxQueryVariables = new HashMap<>();
+            getHeartsRainByBoxQueryVariables.put("boxId", restClientProperties.getBoxId());
 
-            GraphqlRequestBody getHeartsRain2GraphqlRequestBody = new GraphqlRequestBody("getHeartsRain2", getHeartsRain2QueryVariables, getHeartsRain2Query);
-            ResponseEntity<String> getHeartsRain2Response = restClient.graphql("Bearer " + token, getHeartsRain2GraphqlRequestBody);
-            log.debug("Get hearts rain 2 response: {}", getHeartsRain2Response);
+            GraphqlRequestBody getHeartsRainByBoxGraphqlRequestBody = new GraphqlRequestBody("getHeartsRainByBox", getHeartsRainByBoxQueryVariables, getHeartsRainByBoxQuery);
+            ResponseEntity<String> getHeartsRainByBoxResponse = restClient.graphql("Bearer " + token, getHeartsRainByBoxGraphqlRequestBody);
+            log.debug("Get hearts rain by box response: {}", getHeartsRainByBoxResponse);
 
-            JsonElement jsonRoot = JsonParser.parseString(getHeartsRain2Response.getBody());
+            JsonElement jsonRoot = JsonParser.parseString(getHeartsRainByBoxResponse.getBody());
             JsonObject data = jsonRoot.getAsJsonObject().get("data").getAsJsonObject();
-            JsonElement getHeartsRain2String = data.get("getHeartsRain2");
+            JsonElement getHeartsRainByBoxString = data.get("getHeartsRainByBox");
 
-            if (!getHeartsRain2String.isJsonNull()) {
-                getHeartsRain2 = getHeartsRain2String.getAsBoolean();
+            if (!getHeartsRainByBoxString.isJsonNull()) {
+                getHeartsRainByBox = getHeartsRainByBoxString.getAsBoolean();
             }
 
-            if (getHeartsRain2) {
+            if (getHeartsRainByBox) {
                 // (Re)Set hearts rain to false
                 String setHeartsRainQuery = "mutation setHeartsRain($heartsRain: Boolean) {\n  setHeartsRain(heartsRain: $heartsRain)\n}\n";
                 Map<String, Object> setHeartsRainQueryVariables = new HashMap<>();
@@ -175,7 +173,7 @@ public class LoveboxService {
                 log.debug("Set hearts rain response: {}", setHeartsRainResponse);
             }
         }
-        return getHeartsRain2;
+        return getHeartsRainByBox;
     }
 
     @SneakyThrows
