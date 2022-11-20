@@ -4,18 +4,6 @@ import com.patbaumgartner.lovebox.telegram.sender.services.ImageService;
 import com.patbaumgartner.lovebox.telegram.sender.services.LoveboxService;
 import com.patbaumgartner.lovebox.telegram.sender.utils.Pair;
 import com.patbaumgartner.lovebox.telegram.sender.utils.Tripple;
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -30,6 +18,15 @@ import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.PhotoSize;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Component
@@ -51,10 +48,12 @@ public class LoveboxBot extends TelegramLongPollingBot {
             loveboxMessageStore.computeIfPresent(p.left(), (key, value) -> {
                 if (!value.equals(p.right())) {
                     Collection<Pair<Long, Message>> pairs = telegramMessageStore.get(p.left());
-                    for (Pair<Long, Message> pair : pairs) {
-                        Message message = pair.right();
-                        if (message != null) {
-                            updatePhotoMessageCaption(message, p.right());
+                    if (pairs != null) {
+                        for (Pair<Long, Message> pair : pairs) {
+                            Message message = pair.right();
+                            if (message != null) {
+                                updatePhotoMessageCaption(message, p.right());
+                            }
                         }
                     }
                 }
@@ -66,7 +65,8 @@ public class LoveboxBot extends TelegramLongPollingBot {
 
     @Scheduled(fixedRate = 10_000)
     public void receiveWaterfallOfHearts() {
-        if (loveboxService.receiveWaterfallOfHearts()) {
+        String heartsRainId = loveboxService.receiveWaterfallOfHearts();
+        if (heartsRainId != null) {
             chatIds.forEach(chatId -> sendTextMessage(chatId, "You received a waterfall of hearts! ❤❤❤"));
         }
     }
@@ -115,7 +115,7 @@ public class LoveboxBot extends TelegramLongPollingBot {
             for (long chatId : chatIds) {
                 Message sentMessage = sendPhotoMessage(chatId, text, imagePair, statusTripple);
                 telegramMessageStore.compute(statusTripple.left(), (key, value) -> (value == null) ? new ArrayList<>() : value)
-                    .add(new Pair<>(chatId, sentMessage));
+                        .add(new Pair<>(chatId, sentMessage));
             }
         }
     }
@@ -138,37 +138,39 @@ public class LoveboxBot extends TelegramLongPollingBot {
     }
 
     protected void sendTextMessage(long chatId, String text) {
+        String textMessage = text != null ? text : "";
         SendMessage message = new SendMessage();
         message.setChatId(String.valueOf(chatId));
-        message.setText(text);
+        message.setText(textMessage);
         try {
             execute(message);
-            log.debug("Sent message \"{}\" to {}", text.replaceAll("\n", " "), chatId);
+            log.debug("Sent message \"{}\" to {}", textMessage.replaceAll("\n", " "), chatId);
         } catch (TelegramApiException | RuntimeException e) {
-            log.error("Failed to send message \"{}\" to {} due to error: {}", text, chatId, e.getMessage());
+            log.error("Failed to send message \"{}\" to {} due to error: {}", textMessage, chatId, e.getMessage());
         }
     }
 
     protected Message sendPhotoMessage(long chatId, String text, Pair<String, byte[]> imagePair, Tripple<String, LocalDateTime, String> statusTripple) {
+        String textMessage = text != null ? text : "";
         SendPhoto message = new SendPhoto();
         message.setChatId(String.valueOf(chatId));
         message.setPhoto(new InputFile(new ByteArrayInputStream(imagePair.right()), "image.png"));
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z");
         String formattedDateTime = ZonedDateTime.of(statusTripple.middle(), ZoneId.of("Europe/London"))
-            .format(formatter);
+                .format(formatter);
         String caption = String.format("Message: \"%s\" \nStatus: [%s].\nExecuted: %s",
-            text != null ? text.replaceAll("\n", " ") : "",
-            statusTripple.right(),
-            formattedDateTime);
+                textMessage != null ? textMessage.replaceAll("\n", " ") : "",
+                statusTripple.right(),
+                formattedDateTime);
         message.setCaption(caption);
 
         Message sentMessage = null;
         try {
             sentMessage = execute(message);
-            log.debug("Sent message \"{}\" to {}", text.replaceAll("\n", " "), chatId);
+            log.debug("Sent message \"{}\" to {}", textMessage.replaceAll("\n", " "), chatId);
         } catch (TelegramApiException | RuntimeException e) {
-            log.error("Failed to send message \"{}\" to {} due to error: {}", text, chatId, e.getMessage());
+            log.error("Failed to send message \"{}\" to {} due to error: {}", textMessage, chatId, e.getMessage());
         }
         return sentMessage;
     }
@@ -177,9 +179,9 @@ public class LoveboxBot extends TelegramLongPollingBot {
         String text = message.getCaption().replaceAll("\\[.*\\]\\.", "[" + status + "].");
         String chatId = String.valueOf(message.getChatId());
         EditMessageCaption editMessage = EditMessageCaption.builder()
-            .messageId(message.getMessageId())
-            .chatId(chatId)
-            .caption(text).build();
+                .messageId(message.getMessageId())
+                .chatId(chatId)
+                .caption(text).build();
         try {
             execute(editMessage);
             log.debug("Sent message \"{}\" to {}", text.replaceAll("\n", " "), chatId);

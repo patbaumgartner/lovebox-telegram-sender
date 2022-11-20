@@ -4,27 +4,18 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.patbaumgartner.lovebox.telegram.sender.rest.clients.CheckEmailRequestBody;
-import com.patbaumgartner.lovebox.telegram.sender.rest.clients.CheckEmailResponseBody;
-import com.patbaumgartner.lovebox.telegram.sender.rest.clients.GraphqlRequestBody;
-import com.patbaumgartner.lovebox.telegram.sender.rest.clients.LoginWithPasswordResponseBody;
-import com.patbaumgartner.lovebox.telegram.sender.rest.clients.LoginWithPasswordlRequestBody;
-import com.patbaumgartner.lovebox.telegram.sender.rest.clients.LoveboxRestClient;
-import com.patbaumgartner.lovebox.telegram.sender.rest.clients.LoveboxRestClientProperties;
+import com.patbaumgartner.lovebox.telegram.sender.rest.clients.*;
 import com.patbaumgartner.lovebox.telegram.sender.utils.Pair;
 import com.patbaumgartner.lovebox.telegram.sender.utils.Tripple;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -89,7 +80,7 @@ public class LoveboxService {
         // Login with password and get token
         if (restClientProperties.isEnabled()) {
             ResponseEntity<LoginWithPasswordResponseBody> loginWithPasswordResponse = restClient.loginWithPassword(
-                new LoginWithPasswordlRequestBody(restClientProperties.getEmail(), restClientProperties.getPassword()));
+                    new LoginWithPasswordlRequestBody(restClientProperties.getEmail(), restClientProperties.getPassword()));
             log.debug("Login with password response: {}", loginWithPasswordResponse);
             return loginWithPasswordResponse.getBody().token();
         }
@@ -122,10 +113,10 @@ public class LoveboxService {
 
             JsonElement jsonRoot = JsonParser.parseString(sendPixNoteResponse.getBody());
             JsonObject sendPixNote = jsonRoot.getAsJsonObject()
-                .get("data").getAsJsonObject()
-                .get("sendPixNote").getAsJsonObject();
+                    .get("data").getAsJsonObject()
+                    .get("sendPixNote").getAsJsonObject();
             JsonObject stati = sendPixNote
-                .get("statusList").getAsJsonArray().get(0).getAsJsonObject();
+                    .get("statusList").getAsJsonArray().get(0).getAsJsonObject();
 
             String id = sendPixNote.get("_id").getAsString();
             String status = stati.get("label").getAsString();
@@ -139,41 +130,37 @@ public class LoveboxService {
     }
 
     @SneakyThrows
-    public boolean receiveWaterfallOfHearts() {
-        boolean getHeartsRainByBox = false;
-
+    public String receiveWaterfallOfHearts() {
         if (restClientProperties.isEnabled()) {
             String token = loginAndResolveToken();
-
             // Get hearts rain
-            String getHeartsRainByBoxQuery = "query getHeartsRainByBox($boxId: String!) {\n  getHeartsRainByBox(boxId: $boxId)\n}\n";
-            Map<String, Object> getHeartsRainByBoxQueryVariables = new HashMap<>();
-            getHeartsRainByBoxQueryVariables.put("boxId", restClientProperties.getBoxId());
+            String getHeartsRainQuery = "query getHeartsRain {\n  getHeartsRain {\n  _id\n  sender\n  __typename  \n}\n}\n";
+            Map<String, Object> getHeartsRainQueryVariables = new HashMap<>();
 
-            GraphqlRequestBody getHeartsRainByBoxGraphqlRequestBody = new GraphqlRequestBody("getHeartsRainByBox", getHeartsRainByBoxQueryVariables, getHeartsRainByBoxQuery);
-            ResponseEntity<String> getHeartsRainByBoxResponse = restClient.graphql("Bearer " + token, getHeartsRainByBoxGraphqlRequestBody);
-            log.debug("Get hearts rain by box response: {}", getHeartsRainByBoxResponse);
+            GraphqlRequestBody getHeartsRainGraphqlRequestBody = new GraphqlRequestBody("getHeartsRain", getHeartsRainQueryVariables, getHeartsRainQuery);
+            ResponseEntity<String> getHeartsRainResponse = restClient.graphql("Bearer " + token, getHeartsRainGraphqlRequestBody);
+            log.debug("Get hearts rain by box response: {}", getHeartsRainResponse);
 
-            JsonElement jsonRoot = JsonParser.parseString(getHeartsRainByBoxResponse.getBody());
+            JsonElement jsonRoot = JsonParser.parseString(getHeartsRainResponse.getBody());
             JsonObject data = jsonRoot.getAsJsonObject().get("data").getAsJsonObject();
-            JsonElement getHeartsRainByBoxString = data.get("getHeartsRainByBox");
+            JsonElement getHeartsRainString = data.get("getHeartsRain");
 
-            if (!getHeartsRainByBoxString.isJsonNull()) {
-                getHeartsRainByBox = getHeartsRainByBoxString.getAsBoolean();
-            }
+            if (!getHeartsRainString.isJsonNull()) {
+                String getHeartsRainId = getHeartsRainString.getAsJsonObject().get("_id").getAsString();
 
-            if (getHeartsRainByBox) {
                 // (Re)Set hearts rain to false
-                String setHeartsRainQuery = "mutation setHeartsRain($heartsRain: Boolean) {\n  setHeartsRain(heartsRain: $heartsRain)\n}\n";
+                String setHeartsRainQuery = "mutation setHeartsRain($heartId: String!) {\n  setHeartsRain(heartId:  $heartId)\n}\n";
                 Map<String, Object> setHeartsRainQueryVariables = new HashMap<>();
-                setHeartsRainQueryVariables.put("heartsRain", false);
+                setHeartsRainQueryVariables.put("heartId", getHeartsRainId);
 
                 GraphqlRequestBody setHeartsRainGraphqlRequestBody = new GraphqlRequestBody("setHeartsRain", setHeartsRainQueryVariables, setHeartsRainQuery);
                 ResponseEntity<String> setHeartsRainResponse = restClient.graphql("Bearer " + token, setHeartsRainGraphqlRequestBody);
                 log.debug("Set hearts rain response: {}", setHeartsRainResponse);
+
+                return getHeartsRainId;
             }
         }
-        return getHeartsRainByBox;
+        return null;
     }
 
     @SneakyThrows
@@ -190,21 +177,25 @@ public class LoveboxService {
             getMessagesByBoxQueryVariables.put("messagesShown", 0);
 
             GraphqlRequestBody getMessagesByBoxGraphqlRequestBody = new GraphqlRequestBody("getMessagesByBox", getMessagesByBoxQueryVariables,
-                getMessagesByBoxQuery);
+                    getMessagesByBoxQuery);
             ResponseEntity<String> getMessagesByBoxResponse = restClient.graphql("Bearer " + token, getMessagesByBoxGraphqlRequestBody);
             log.debug("Get messages by box response: {}", getMessagesByBoxResponse);
 
             JsonElement jsonRoot = JsonParser.parseString(getMessagesByBoxResponse.getBody());
-            JsonArray getMessagesByBox = jsonRoot.getAsJsonObject()
-                .get("data").getAsJsonObject()
-                .get("getMessagesByBox").getAsJsonArray();
+            JsonElement getMessagesByBox = jsonRoot.getAsJsonObject()
+                    .get("data").getAsJsonObject().get("getMessagesByBox");
 
-            getMessagesByBox.forEach(m -> {
-                JsonObject message = m.getAsJsonObject();
-                String id = message.get("_id").getAsString();
-                String status = message.get("status").getAsJsonObject().get("label").getAsString();
-                messageStatus.add(new Pair(id, status));
-            });
+            if (!getMessagesByBox.isJsonNull()) {
+                JsonArray messages = getMessagesByBox
+                        .getAsJsonArray();
+
+                messages.forEach(m -> {
+                    JsonObject message = m.getAsJsonObject();
+                    String id = message.get("_id").getAsString();
+                    String status = message.get("status").getAsJsonObject().get("label").getAsString();
+                    messageStatus.add(new Pair(id, status));
+                });
+            }
         }
         return messageStatus;
     }
