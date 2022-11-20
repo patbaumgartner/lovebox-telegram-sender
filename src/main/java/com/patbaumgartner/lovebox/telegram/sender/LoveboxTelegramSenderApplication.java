@@ -2,10 +2,6 @@ package com.patbaumgartner.lovebox.telegram.sender;
 
 import com.patbaumgartner.lovebox.telegram.sender.rest.clients.LoveboxRestClientProperties;
 import com.patbaumgartner.lovebox.telegram.sender.telegram.LoveboxBotProperties;
-import java.awt.Font;
-import java.awt.GraphicsEnvironment;
-import java.util.ArrayList;
-import java.util.List;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -16,6 +12,10 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.telegram.telegrambots.starter.TelegramBotStarterConfiguration;
+
+import java.awt.*;
+import java.util.ArrayList;
+import java.util.List;
 
 @EnableFeignClients
 @EnableScheduling
@@ -34,7 +34,7 @@ public class LoveboxTelegramSenderApplication {
     public CommandLineRunner commandLineRunner() {
         return (args) -> {
             String[] fonts = GraphicsEnvironment.getLocalGraphicsEnvironment()
-                .getAvailableFontFamilyNames();
+                    .getAvailableFontFamilyNames();
             System.out.println(fonts.length + " font families installed.");
 
             List<String> supportedFonts = new ArrayList<>();
