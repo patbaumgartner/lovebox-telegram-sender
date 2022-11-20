@@ -12,13 +12,17 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.EnableScheduling;
+import org.telegram.telegrambots.starter.TelegramBotStarterConfiguration;
 
 @EnableFeignClients
 @EnableScheduling
 @SpringBootApplication
 @EnableConfigurationProperties({LoveboxRestClientProperties.class, LoveboxBotProperties.class})
+// Legacy Import AutoConfiguration since Import Candidates are not supported yet in starter
+@Import(TelegramBotStarterConfiguration.class)
 public class LoveboxTelegramSenderApplication {
 
     public static void main(String[] args) {
