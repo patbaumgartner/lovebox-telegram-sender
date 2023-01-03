@@ -27,7 +27,7 @@
         <imgscalr.version>4.2</imgscalr.version>
         <java.version>17</java.version>
         <spring-cloud.version>2022.0.0-RC3</spring-cloud.version>
-        <telegrambots-spring-boot-starter.version>6.3.0</telegrambots-spring-boot-starter.version>
+        <telegrambots-spring-boot-starter.version>6.4.0</telegrambots-spring-boot-starter.version>
     </properties>
 
     <dependencies>
