@@ -2,11 +2,13 @@
 
 # Lovebox Telegram Sender
 
-The app allows sending messages via Telegram Bot to a single Lovebox instance. Text messages and photos with captions are supported. Other message types (e.g. Stickers, Audio, etc.) will lead to a default message.
+The app allows sending messages via Telegram Bot to a single Lovebox instance. Text messages and photos with captions
+are supported. Other message types (e.g. Stickers, Audio, etc.) will lead to a default message.
 
 ## Application Setup
 
-To set up the app a few ids and values need to be retrieved on the Lovebox API. The following curl commands help to find the needed data on an existing account. Make sure you have set up your account via the Android or iOS app already.
+To set up the app a few ids and values need to be retrieved on the Lovebox API. The following curl commands help to find
+the needed data on an existing account. Make sure you have set up your account via the Android or iOS app already.
 
 ### Login with Password
 
@@ -42,9 +44,9 @@ curl --location --request POST 'https://app-api.loveboxlove.com/v1/graphql' \
 --header 'content-type: application/json' \
 --header 'host: app-api.loveboxlove.com' \
 --data-raw '{
-    "operationName": null,
+    "operationName": "me",
     "variables": {},
-    "query": "{\n  me {\n    _id\n    firstName\n    email\n    boxes {\n      _id\n      color\n      signature\n      lovePercentage\n      nickname\n      notifications {\n        disableUntil\n        messageRead\n        heartReceived\n        __typename\n      }\n      admin {\n        _id\n        firstName\n        email\n        __typename\n      }\n      privacyPolicy\n      pairingCode\n      isConnected\n      isAdmin\n      hardware\n      hasColor\n      hasColorBackup\n      connectionDate\n      __typename\n    }\n    relations {\n      _id\n      name\n      relationType\n      picture\n      color\n      streak\n      boxId\n      loveGoal\n      streakDeadline\n      reminders {\n        day\n        meridiem\n        number\n        weekday\n        time\n        __typename\n      }\n      specialDates {\n        _id\n        name\n        date\n        dateType\n        __typename\n      }\n      addresses {\n        firstname\n        lastname\n        streetAddress\n        zipCode\n        city\n        country\n        state\n        __typename\n      }\n      __typename\n    }\n    roles\n    device {\n      _id\n      appVersion\n      os\n      __typename\n    }\n    profile\n    reminder\n    premium\n    beta\n    fcmToken\n    language\n    loveCoins\n    __typename\n  }\n}\n"
+    "query": "query me {\n  me {\n    _id\n    _id\n    createdAt\n    firstName\n    email\n    beta\n    settings {\n      streak\n      loveGoal\n      reminders {\n        day\n        meridiem\n        number\n        weekday\n        time\n        __typename\n      }\n      specialDates {\n        _id\n        name\n        date\n        dateType\n        __typename\n      }\n      notifications {\n        generalMessageRead\n        generalHeartReceived\n        marketingOffers\n        marketingOffersPush\n        marketingOffersEmail\n        __typename\n      }\n      __typename\n    }\n    addresses {\n      firstname\n      lastname\n      streetAddress\n      zipCode\n      city\n      country\n      state\n      __typename\n    }\n    boxes {\n      _id\n      color\n      companyId\n      signature\n      picture\n      nickname\n      notifications {\n        disableUntil\n        messageRead\n        heartReceived\n        __typename\n      }\n      admin {\n        _id\n        firstName\n        email\n        __typename\n      }\n      privacyPolicy\n      pairingCode\n      isConnected\n      isAdmin\n      hardware\n      hasColor\n      connectionDate\n      macAddress\n      __typename\n    }\n    roles\n    device {\n      _id\n      appVersion\n      os\n      __typename\n    }\n    profile\n    reminder\n    subscription {\n      subscribed\n      platform\n      __typename\n    }\n    fcmToken\n    language\n    loveCoins\n    lastSentMessage\n    __typename\n  }\n}\n"
 }'
 ```
 
@@ -53,19 +55,45 @@ curl --location --request POST 'https://app-api.loveboxlove.com/v1/graphql' \
   "data": {
     "me": {
       "_id": "42c61f261f399d0016350b7f",
+      "createdAt": "2021-12-24T19:27:34.542Z",
       "firstName": "FirstName",
       "email": "me@email.com",
+      "beta": 0,
+      "settings": {
+        "streak": 1,
+        "loveGoal": "TwiceAWeek",
+        "reminders": [
+          // ...
+        ],
+        "specialDates": [
+          // ...
+        ],
+        "notifications": {
+          "generalMessageRead": true,
+          "generalHeartReceived": true,
+          "marketingOffers": true,
+          "marketingOffersPush": true,
+          "marketingOffersEmail": true,
+          "__typename": "NotificationUserSettings"
+        },
+        "__typename": "Settings"
+      },
+      "addresses": [],
       "boxes": [
         {
           // lovebox.box-id
           "_id": "417a114e58e15a0214cf3612",
           "color": "#8A64FF",
+          "companyId": "",
           // lovebox.signature
           "signature": "Signature",
-          "lovePercentage": 100,
+          "picture": null,
           "nickname": "Nickname",
           "notifications": {
-            // ...
+            "disableUntil": null,
+            "messageRead": true,
+            "heartReceived": true,
+            "__typename": "NotificationSettings"
           },
           "admin": {
             "_id": "61c61ecc71010a00161789f2",
@@ -79,46 +107,28 @@ curl --location --request POST 'https://app-api.loveboxlove.com/v1/graphql' \
           "isAdmin": false,
           "hardware": "C2",
           "hasColor": true,
-          "hasColorBackup": null,
           "connectionDate": "2021-12-24T19:27:35.123Z",
+          "macAddress": "0CDC7ECF4FC4",
           "__typename": "BoxSettings"
-        }
-      ],
-      "relations": [
-        {
-          // lovebox.relation-id
-          "_id": "33c67a2127d7be09142f4326",
-          "name": "Nickname",
-          "relationType": "other",
-          "picture": null,
-          "color": "#3399FF",
-          "streak": 5,
-          // lovebox.box-id
-          "boxId": "417a114e58e15a0214cf3612",
-          "loveGoal": "Daily",
-          "streakDeadline": "2021-12-29T22:59:59.999Z",
-          "reminders": [],
-          "addresses": [],
-          "__typename": "Relation"
         }
       ],
       "roles": [],
       "device": {
         // lovebox.device-id
         "_id": "42fab8322d8cec91",
-        "appVersion": "5.4.9",
+        "appVersion": "5.14.9",
         "os": "android",
         "__typename": "Device"
       },
       "profile": {
         // ...
       },
-      "reminder": null,
-      "premium": 0,
-      "beta": 0,
+      "reminder": 0,
+      "subscription": null,
       "fcmToken": "edMLqMyMrpoGig9ZHdFdvH:AdA91bGGwx3UEuYTdhYOWDIdwlm2b23B9Jjin3MCGbi7CmUSpCVHFlorfryygi5QUBQMUVUiGsDJIE3RliENFmsuWrOnf4cBba-mNT5032NoKlo9AdPU5YhuCOR0KIdAbCokR42Hru",
       "language": "en",
       "loveCoins": 10,
+      "lastSentMessage": "2023-01-01T17:55:34.890Z",
       "__typename": "User"
     }
   }
@@ -127,13 +137,16 @@ curl --location --request POST 'https://app-api.loveboxlove.com/v1/graphql' \
 
 ### Setting up a Telegram Bot
 
-To create a chatbot on Telegram, you need to contact the [@BotFather](https://telegram.me/BotFather), which is a bot used to create other bots.
+To create a chatbot on Telegram, you need to contact the [@BotFather](https://telegram.me/BotFather), which is a bot
+used to create other bots.
 
-The command you need is `/newbot` which leads to the next steps to create your bot. Follow the instructions and get the bot `username`, and `token`.
+The command you need is `/newbot` which leads to the next steps to create your bot. Follow the instructions and get the
+bot `username`, and `token`.
 
 ### Adjusting SpringBoot's application.properties
 
-Running the app from the source needs adjustments according to your settings. Adjusting the `application.properties` in the sources or passing them as Java options or CLI arguments to the app.
+Running the app from the source needs adjustments according to your settings. Adjusting the `application.properties` in
+the sources or passing them as Java options or CLI arguments to the app.
 
 ```properties
 # Lovebox Login
@@ -143,7 +156,6 @@ lovebox.password=mySecret
 # Lovebox Setting
 lovebox.signature=Signature
 lovebox.device-id=42fab8322d8cec91
-lovebox.relation-id=33c67a2127d7be09142f4326
 lovebox.box-id=417a114e58e15a0214cf3612
 # Telegram Bot Settings
 bot.username=Lovebox_bot
@@ -151,7 +163,9 @@ bot.token=4072971853:ABEojZ42uNA6YYn_c7DF8RH0UOorqXuveSQ
 ```
 
 ### Setting Environment Variables e.g. for Docker
-The following snippet can be passed as `.env` and read by the `docker-compose.yml` or used to be passed directly to the `docker run` command.
+
+The following snippet can be passed as `.env` and read by the `docker-compose.yml` or used to be passed directly to
+the `docker run` command.
 
 ```bash
 # Lovebox Login
@@ -194,12 +208,17 @@ mvn spring-boot:build-image \
 
 ### Fixing Known Issues with Missing Fonts
 
-Since the app uses fonts, we need to make sure that fonts are part of the docker container. The containers produced above throw an exception when using them `java.lang.NullPointerException: Cannot load from short array because "sun.awt.FontConfiguration.head" is null`
+Since the app uses fonts, we need to make sure that fonts are part of the docker container. The containers produced
+above throw an exception when using
+them `java.lang.NullPointerException: Cannot load from short array because "sun.awt.FontConfiguration.head" is null`
 
 [Andreas Ahlensdorf](https://github.com/aahlenst) describes nicely the font problem in his blog
-post [Prerequisites for Font [Support in AdoptOpenJDK](https://blog.adoptopenjdk.net/2021/01/prerequisites-for-font-support-in-adoptopenjdk/).
+post [Prerequisites for
+Font [Support in AdoptOpenJDK](https://blog.adoptopenjdk.net/2021/01/prerequisites-for-font-support-in-adoptopenjdk/).
 
-After more research, it seems that the only solution to add fonts to the build pack base image is to create an OCI run image by extending the base one. See the `Dockerfile.`base-cnb` file and how a patch with the additional font packages might look like.
+After more research, it seems that the only solution to add fonts to the build pack base image is to create an OCI run
+image by extending the base one. See the `Dockerfile.`base-cnb` file and how a patch with the additional font packages
+might look like.
 
 Build the `runImage` locally with the following command.
 
@@ -207,7 +226,9 @@ Build the `runImage` locally with the following command.
 docker build --no-cache -f Dockerfile.base-cnb -t patbaumgartner/run:base-cnb .
 ```
 
-Since we run the pull policy in the `mvn spring-boot:build-image` command with IF_NOT_PRESENT, we need to make sure that the newest version of the builder is locally available. Finally, pass to the `spring-boot-maven-plugin` the `runImage` to build the docker container containing the fonts.
+Since we run the pull policy in the `mvn spring-boot:build-image` command with IF_NOT_PRESENT, we need to make sure that
+the newest version of the builder is locally available. Finally, pass to the `spring-boot-maven-plugin` the `runImage`
+to build the docker container containing the fonts.
 
 ```bash
 mvn spring-boot:build-image \
@@ -220,4 +241,10 @@ mvn spring-boot:build-image \
 
 ## Credits
 
-Reverse engineering (unpinning certificates) was done with [APKLab](https://github.com/APKLab/APKLab) and the [Lovebox APK](https://www.apkmonk.com/app/love.lovebox.loveboxapp/) provided by [apkmonk](https://www.apkmonk.com). Postman was used to capture the REST calls from the mobile app. The article [Capturing Http Requests](https://learning.postman.com/docs/sending-requests/capturing-request-data/capturing-http-requests/) covers everything needed. After a Postman update, [new certs](https://learning.postman.com/docs/sending-requests/capturing-request-data/capturing-http-requests/#troubleshooting-certificate-issues)](https://learning.postman.com/docs/sending-requests/capturing-request-data/capturing-http-requests/#troubleshooting-certificate-issues) need to be installed.
+Reverse engineering (unpinning certificates) was done with [APKLab](https://github.com/APKLab/APKLab) and
+the [Lovebox APK](https://www.apkmonk.com/app/love.lovebox.loveboxapp/) provided by [apkmonk](https://www.apkmonk.com).
+Postman was used to capture the REST calls from the mobile app. The
+article [Capturing Http Requests](https://learning.postman.com/docs/sending-requests/capturing-request-data/capturing-http-requests/)
+covers everything needed. After a Postman
+update, [new certs](https://learning.postman.com/docs/sending-requests/capturing-request-data/capturing-http-requests/#troubleshooting-certificate-issues)](https://learning.postman.com/docs/sending-requests/capturing-request-data/capturing-http-requests/#troubleshooting-certificate-issues)
+need to be installed.

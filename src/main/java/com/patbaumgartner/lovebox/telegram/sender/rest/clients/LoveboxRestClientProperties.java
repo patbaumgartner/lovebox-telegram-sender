@@ -21,6 +21,5 @@ public class LoveboxRestClientProperties {
     private String boxId;
     /* Signature of message sender */
     private String signature;
-    /* Recipient relation id */
-    private String relationId;
+
 }

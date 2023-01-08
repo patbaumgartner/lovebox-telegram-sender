@@ -43,7 +43,7 @@ public class LoveboxBot extends TelegramLongPollingBot {
 
     @Scheduled(fixedRate = 10_000)
     public void readMessageBox() {
-        List<Pair<String, String>> messages = loveboxService.getMessagesByBox();
+        List<Pair<String, String>> messages = loveboxService.getMessages();
         messages.forEach(p -> {
             loveboxMessageStore.computeIfPresent(p.left(), (key, value) -> {
                 if (!value.equals(p.right())) {
