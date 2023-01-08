@@ -6,7 +6,7 @@ import org.springframework.test.context.TestPropertySource;
 
 @SpringBootTest
 @TestPropertySource(
-    properties = {"lovebox.enabled=false", "telegrambots.enabled=false"}
+        properties = {"lovebox.enabled=false", "telegrambots.enabled=false"}
 )
 class LoveboxTelegramSenderApplicationTests {
 

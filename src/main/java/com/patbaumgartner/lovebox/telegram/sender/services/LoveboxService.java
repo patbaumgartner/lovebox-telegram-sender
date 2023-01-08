@@ -92,12 +92,11 @@ public class LoveboxService {
         if (restClientProperties.isEnabled()) {
             String token = loginAndResolveToken();
 
-            String sendPixNoteQuery = "mutation sendPixNote($channel: ChannelsTypes, $appVersion: String, $postcardStripePaymentId: String, $postcardAddress: JSON, $postcardSettings: JSON, $postcardScheduledDate: Date, $postcardText: String, $recipientRelationId: String, $base64: String, $recipient: String, $date: Date, $options: JSON, $contentType: [String], $timezone: Int, $promotionCode: String) {\n  sendPixNote(channel: $channel, appVersion: $appVersion, postcardStripePaymentId: $postcardStripePaymentId, postcardAddress: $postcardAddress, postcardSettings: $postcardSettings, postcardScheduledDate: $postcardScheduledDate, postcardText: $postcardText, recipientRelationId: $recipientRelationId, base64: $base64, recipient: $recipient, date: $date, contentType: $contentType, timezone: $timezone, options: $options, promotionCode: $promotionCode) {\n    _id\n    channel\n    type\n    recipient\n    postcardStripePayment\n    postcardAddress {\n      firstname\n      lastname\n      country\n      state\n      streetAddress\n      city\n      zipCode\n      __typename\n    }\n    postcardSettings {\n      color\n      fontFamily\n      fontSize\n      __typename\n    }\n    recipientRelation\n    postcardText\n    url\n    date\n    status {\n      label\n      __typename\n    }\n    statusList {\n      label\n      date\n      __typename\n    }\n    senderUser {\n      _id\n      firstName\n      email\n      __typename\n    }\n    privacyPolicy\n    addedLoveCoins\n    __typename\n  }\n}\n";
+            String sendPixNoteQuery = "mutation sendPixNote($channel: ChannelsTypes, $appVersion: String, $postcardStripePaymentId: String, $postcardAddress: JSON, $postcardSettings: JSON, $postcardScheduledDate: Date, $postcardText: String, $base64: String, $recipient: String, $date: Date, $options: JSON, $contentType: [String], $timezone: Int, $promotionCode: String) {\n  sendPixNote(channel: $channel, appVersion: $appVersion, postcardStripePaymentId: $postcardStripePaymentId, postcardAddress: $postcardAddress, postcardSettings: $postcardSettings, postcardScheduledDate: $postcardScheduledDate, postcardText: $postcardText, base64: $base64, recipient: $recipient, date: $date, contentType: $contentType, timezone: $timezone, options: $options, promotionCode: $promotionCode) {\n    _id\n    channel\n    type\n    recipient\n    postcardStripePayment\n    postcardAddress {\n      firstname\n      lastname\n      country\n      state\n      streetAddress\n      city\n      zipCode\n      __typename\n    }\n    postcardSettings {\n      color\n      fontFamily\n      fontSize\n      __typename\n    }\n    recipientRelation\n    postcardText\n    url\n    date\n    status {\n      label\n      __typename\n    }\n    statusList {\n      label\n      date\n      __typename\n    }\n    senderUser {\n      _id\n      firstName\n      email\n      __typename\n    }\n    privacyPolicy\n    addedLoveCoins\n    __typename\n  }\n}\n";
             Map<String, Object> sendPixNoteVariables = new HashMap<>();
             sendPixNoteVariables.put("channel", "LOVEBOX");
             sendPixNoteVariables.put("base64", imageAsBase64);
             sendPixNoteVariables.put("recipient", restClientProperties.getBoxId());
-            sendPixNoteVariables.put("recipientRelationId", restClientProperties.getRelationId());
             sendPixNoteVariables.put("contentType", new Object[]{});
             Map<String, Object> options = new HashMap<>();
             options.put("framesBase64", null);
@@ -164,26 +163,32 @@ public class LoveboxService {
     }
 
     @SneakyThrows
-    public List<Pair<String, String>> getMessagesByBox() {
+    public List<Pair<String, String>> getMessages() {
         List<Pair<String, String>> messageStatus = new ArrayList<>();
 
         if (restClientProperties.isEnabled()) {
             String token = loginAndResolveToken();
 
             // Get hearts rain
-            String getMessagesByBoxQuery = "query getMessagesByBox($boxId: String, $relationId: String, $messagesShown: Int!) {\n  getMessagesByBox(boxId: $boxId, relationId: $relationId, messagesShown: $messagesShown) {\n    _id\n    channel\n    content\n    type\n    recipient\n    date\n    status {\n      label\n      __typename\n    }\n    statusList {\n      label\n      date\n      __typename\n    }\n    drawing {\n      base64\n      rotate\n      __typename\n    }\n    base64\n    bytes\n    premium\n    textOnly\n    textCentered\n    gifId\n    url\n    urlId\n    frames\n    senderUser {\n      _id\n      firstName\n      email\n      __typename\n    }\n    privacyPolicy\n    postcardAddress {\n      firstname\n      lastname\n      streetAddress\n      zipCode\n      city\n      country\n      state\n      __typename\n    }\n    postcardSettings {\n      color\n      fontFamily\n      fontSize\n      __typename\n    }\n    postcardScheduledDate\n    estimatedArrivalDate\n    __typename\n  }\n}\n";
-            Map<String, Object> getMessagesByBoxQueryVariables = new HashMap<>();
-            getMessagesByBoxQueryVariables.put("relationId", restClientProperties.getRelationId());
-            getMessagesByBoxQueryVariables.put("messagesShown", 0);
+            String getMessagesQuery = "query getMessages($getMessagesInput: GetMessagesInput) {\n  getMessages(getMessagesInput: $getMessagesInput) {\n    _id\n    channel\n    content\n    type\n    recipient\n    date\n    status {\n      label\n      __typename\n    }\n    statusList {\n      label\n      date\n      __typename\n    }\n    drawing {\n      base64\n      rotate\n      __typename\n    }\n    base64\n    bytes\n    premium\n    textOnly\n    textCentered\n    gifId\n    url\n    urlId\n    frames\n    senderUser {\n      _id\n      firstName\n      email\n      __typename\n    }\n    privacyPolicy\n    postcardText\n    postcardAddress {\n      firstname\n      lastname\n      streetAddress\n      zipCode\n      city\n      country\n      state\n      __typename\n    }\n    postcardSettings {\n      color\n      fontFamily\n      fontSize\n      __typename\n    }\n    postcardScheduledDate\n    estimatedArrivalDate\n    __typename\n  }\n}\n";
 
-            GraphqlRequestBody getMessagesByBoxGraphqlRequestBody = new GraphqlRequestBody("getMessagesByBox", getMessagesByBoxQueryVariables,
-                    getMessagesByBoxQuery);
-            ResponseEntity<String> getMessagesByBoxResponse = restClient.graphql("Bearer " + token, getMessagesByBoxGraphqlRequestBody);
-            log.debug("Get messages by box response: {}", getMessagesByBoxResponse);
+            Map<String, Object> getMessagesInput = new HashMap<>();
+            getMessagesInput.put("recipient", restClientProperties.getBoxId());
+            getMessagesInput.put("limit", 10);
+            getMessagesInput.put("skip", 0);
 
-            JsonElement jsonRoot = JsonParser.parseString(getMessagesByBoxResponse.getBody());
+            Map<String, Object> getMessagesQueryVariables = new HashMap<>();
+            getMessagesQueryVariables.put("getMessagesInput", getMessagesInput);
+
+
+            GraphqlRequestBody getMessagesByBoxGraphqlRequestBody = new GraphqlRequestBody("getMessages", getMessagesQueryVariables,
+                    getMessagesQuery);
+            ResponseEntity<String> getMessagesResponse = restClient.graphql("Bearer " + token, getMessagesByBoxGraphqlRequestBody);
+            log.debug("Get messages by box response: {}", getMessagesResponse);
+
+            JsonElement jsonRoot = JsonParser.parseString(getMessagesResponse.getBody());
             JsonElement getMessagesByBox = jsonRoot.getAsJsonObject()
-                    .get("data").getAsJsonObject().get("getMessagesByBox");
+                    .get("data").getAsJsonObject().get("getMessages");
 
             if (!getMessagesByBox.isJsonNull()) {
                 JsonArray messages = getMessagesByBox
