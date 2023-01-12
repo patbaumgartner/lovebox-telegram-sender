@@ -41,7 +41,7 @@ public class LoveboxBot extends TelegramLongPollingBot {
     private final ConcurrentHashMap<String, String> loveboxMessageStore = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Collection<Pair<Long, Message>>> telegramMessageStore = new ConcurrentHashMap<>();
 
-    @Scheduled(fixedRate = 10_000)
+    @Scheduled(fixedRate = 20_000)
     public void readMessageBox() {
         List<Pair<String, String>> messages = loveboxService.getMessages();
         messages.forEach(p -> {
@@ -63,7 +63,7 @@ public class LoveboxBot extends TelegramLongPollingBot {
         });
     }
 
-    @Scheduled(fixedRate = 10_000)
+    @Scheduled(fixedRate = 20_000)
     public void receiveWaterfallOfHearts() {
         String heartsRainId = loveboxService.receiveWaterfallOfHearts();
         if (heartsRainId != null) {
