@@ -7,7 +7,7 @@ are supported. Other message types (e.g. Stickers, Audio, etc.) will lead to a d
 
 ## Application Setup
 
-To set up the app a few ids and values need to be retrieved on the Lovebox API. The following curl commands help to find
+To set up the app, a few IDs and values need to be retrieved from the Lovebox API. The following curl commands help to find
 the needed data on an existing account. Make sure you have set up your account via the Android or iOS app already.
 
 ### Login with Password
@@ -212,9 +212,8 @@ Since the app uses fonts, we need to make sure that fonts are part of the docker
 above throw an exception when using
 them `java.lang.NullPointerException: Cannot load from short array because "sun.awt.FontConfiguration.head" is null`
 
-[Andreas Ahlensdorf](https://github.com/aahlenst) describes nicely the font problem in his blog
-post [Prerequisites for
-Font [Support in AdoptOpenJDK](https://blog.adoptopenjdk.net/2021/01/prerequisites-for-font-support-in-adoptopenjdk/).
+[Andreas Ahlensdorf](https://github.com/aahlenst) describes nicely the font problem in his blog post [Prerequisites for
+Font Support in AdoptOpenJDK](https://blog.adoptopenjdk.net/2021/01/prerequisites-for-font-support-in-adoptopenjdk/).
 
 After more research, it seems that the only solution to add fonts to the build pack base image is to create an OCI run
 image by extending the base one. See the `Dockerfile.`base-cnb` file and how a patch with the additional font packages
@@ -241,10 +240,7 @@ mvn spring-boot:build-image \
 
 ## Credits
 
-Reverse engineering (unpinning certificates) was done with [APKLab](https://github.com/APKLab/APKLab) and
-the [Lovebox APK](https://www.apkmonk.com/app/love.lovebox.loveboxapp/) provided by [apkmonk](https://www.apkmonk.com).
-Postman was used to capture the REST calls from the mobile app. The
-article [Capturing Http Requests](https://learning.postman.com/docs/sending-requests/capturing-request-data/capturing-http-requests/)
-covers everything needed. After a Postman
-update, [new certs](https://learning.postman.com/docs/sending-requests/capturing-request-data/capturing-http-requests/#troubleshooting-certificate-issues)](https://learning.postman.com/docs/sending-requests/capturing-request-data/capturing-http-requests/#troubleshooting-certificate-issues)
-need to be installed.
+Reverse engineering (unpinning certificates) was done with [APKLab](https://github.com/APKLab/APKLab) and the 
+[Lovebox APK](https://www.apkmonk.com/app/love.lovebox.loveboxapp/) provided by [apkmonk](https://www.apkmonk.com). Postman 
+was used to capture the REST calls from the mobile app. The article [Capturing Http Requests](https://learning.postman.com/docs/sending-requests/capturing-request-data/capturing-http-requests/) 
+covers everything needed. After a Postman update, [new certs](https://learning.postman.com/docs/sending-requests/capturing-request-data/capturing-http-requests/#troubleshooting-certificate-issues) need to be installed.
