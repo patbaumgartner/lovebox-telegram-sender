@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.1.0-RC2</version>
+        <version>3.1.0</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
 
@@ -110,6 +110,12 @@
                             <url>${CI_REGISTRY}</url>
                         </publishRegistry>
                     </docker>
+                    <image>
+                        <env>
+                        <BP_JVM_JLINK_ENABLED>true</BP_JVM_JLINK_ENABLED>
+                        <BP_JVM_JLINK_ARGS>--add-modules jdk.management.agent,java.base,java.logging,java.xml,jdk.unsupported,java.sql,java.naming,java.desktop,java.management,java.security.jgss,java.instrument  --compress=2 --no-header-files --no-man-pages --strip-debug</BP_JVM_JLINK_ARGS>
+                        </env>
+                    </image>
                 </configuration>
             </plugin>
         </plugins>
