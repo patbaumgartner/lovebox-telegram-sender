@@ -114,7 +114,7 @@
                         <env>
                             <BP_JVM_JLINK_ENABLED>true</BP_JVM_JLINK_ENABLED>
                             <BP_JVM_JLINK_ARGS>--add-modules
-                                jdk.management.agent,java.base,java.logging,java.xml,jdk.unsupported,java.sql,java.naming,java.desktop,java.management,java.security.jgss,java.instrument
+                                jdk.management.agent,java.base,java.logging,java.xml,jdk.unsupported,java.sql,java.naming,java.desktop,java.management,java.security.jgss,java.instrument,jdk.crypto.ec,jdk.crypto.cryptoki
                                 --compress=2 --no-header-files --no-man-pages --strip-debug</BP_JVM_JLINK_ARGS>
                         </env>
                     </image>
