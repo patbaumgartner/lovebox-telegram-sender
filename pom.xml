@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
         <version>3.1.0</version>
-        <relativePath/> <!-- lookup parent from repository -->
+        <relativePath /> <!-- lookup parent from repository -->
     </parent>
 
     <groupId>com.patbaumgartner</groupId>
@@ -19,9 +19,9 @@
 
     <properties>
         <!-- Providing properties for CI build -->
-        <CI_REGISTRY/>
-        <CI_REGISTRY_USER/>
-        <CI_REGISTRY_PASSWORD/>
+        <CI_REGISTRY />
+        <CI_REGISTRY_USER />
+        <CI_REGISTRY_PASSWORD />
         <!-- Project properties for dependency management -->
         <emoji4j.version>6.0</emoji4j.version>
         <imgscalr.version>4.2</imgscalr.version>
@@ -112,8 +112,10 @@
                     </docker>
                     <image>
                         <env>
-                        <BP_JVM_JLINK_ENABLED>true</BP_JVM_JLINK_ENABLED>
-                        <BP_JVM_JLINK_ARGS>--add-modules jdk.management.agent,java.base,java.logging,java.xml,jdk.unsupported,java.sql,java.naming,java.desktop,java.management,java.security.jgss,java.instrument  --compress=2 --no-header-files --no-man-pages --strip-debug</BP_JVM_JLINK_ARGS>
+                            <BP_JVM_JLINK_ENABLED>true</BP_JVM_JLINK_ENABLED>
+                            <BP_JVM_JLINK_ARGS>--add-modules
+                                jdk.management.agent,java.base,java.logging,java.xml,jdk.unsupported,java.sql,java.naming,java.desktop,java.management,java.security.jgss,java.instrument
+                                --compress=2 --no-header-files --no-man-pages --strip-debug</BP_JVM_JLINK_ARGS>
                         </env>
                     </image>
                 </configuration>
