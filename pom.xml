@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.1.0</version>
+        <version>3.1.2</version>
         <relativePath /> <!-- lookup parent from repository -->
     </parent>
 
@@ -26,7 +26,7 @@
         <emoji4j.version>6.0</emoji4j.version>
         <imgscalr.version>4.2</imgscalr.version>
         <java.version>17</java.version>
-        <spring-cloud.version>2022.0.2</spring-cloud.version>
+        <spring-cloud.version>2022.0.4</spring-cloud.version>
         <telegrambots-spring-boot-starter.version>6.7.0</telegrambots-spring-boot-starter.version>
     </properties>
 
@@ -111,11 +111,10 @@
                         </publishRegistry>
                     </docker>
                     <image>
+                        <builder>bellsoft/buildpacks.builder:musl</builder>
                         <env>
                             <BP_JVM_JLINK_ENABLED>true</BP_JVM_JLINK_ENABLED>
-                            <BP_JVM_JLINK_ARGS>--add-modules
-                                jdk.management.agent,java.base,java.logging,java.xml,jdk.unsupported,java.sql,java.naming,java.desktop,java.management,java.security.jgss,java.instrument,jdk.crypto.ec,jdk.crypto.cryptoki
-                                --compress=2 --no-header-files --no-man-pages --strip-debug</BP_JVM_JLINK_ARGS>
+                            <BP_JVM_JLINK_ARGS>--add-modules jdk.management.agent,java.base,java.logging,java.xml,jdk.unsupported,java.sql,java.naming,java.desktop,java.management,java.security.jgss,java.instrument,jdk.crypto.ec,jdk.crypto.cryptoki --compress=2 --no-header-files --no-man-pages --strip-debug</BP_JVM_JLINK_ARGS>
                         </env>
                     </image>
                 </configuration>
