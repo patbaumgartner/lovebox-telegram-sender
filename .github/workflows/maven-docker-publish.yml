@@ -26,7 +26,7 @@ jobs:
       - name: Docker meta
         id: meta
         if: github.event_name != 'pull_request'
-        uses: docker/metadata-action@v5.0.0
+        uses: docker/metadata-action@v5.1.0
         with:
           images: patbaumgartner/lovebox-telegram-sender
           tags: |
