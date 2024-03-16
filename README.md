@@ -234,7 +234,7 @@ mvn spring-boot:build-image \
  --batch-mode \
  --no-transfer-progress \
  -Dspring-boot.build-image.imageName='patbaumgartner/${project.artifactId}:${project.version}' \
- -Dspring-boot.build-image.runImage=patbaumgartner/run:base-cnb \
+ -Dspring-boot.build-image.runImage=patbaumgartner/builder-jammy-base:latest \
  -Dspring-boot.build-image.pullPolicy=IF_NOT_PRESENT
 ```
 
