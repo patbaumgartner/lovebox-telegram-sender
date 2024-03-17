@@ -1,18 +1,18 @@
-FROM paketobuildpacks/run:base-cnb
+FROM paketobuildpacks/run-jammy-base:latest
 
 USER root
 
 ## Idea from: https://blog.adoptopenjdk.net/2021/01/prerequisites-for-font-support-in-adoptopenjdk/
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
-    wget \
-    fontconfig \
+  wget \
+  fontconfig \
   && rm -rf /var/lib/apt/lists/*
 
 # Install Noto Emoji Manually
 RUN mkdir -p /usr/share/fonts/truetype/noto \
-    && cd /usr/share/fonts/truetype/noto \
-    && wget https://github.com/googlefonts/noto-emoji/raw/9a5261d871451f9b5183c93483cbd68ed916b1e9/fonts/NotoEmoji-Regular.ttf \
-    && fc-cache -fv
+  && cd /usr/share/fonts/truetype/noto \
+  && wget https://github.com/googlefonts/noto-emoji/raw/9a5261d871451f9b5183c93483cbd68ed916b1e9/fonts/NotoEmoji-Regular.ttf \
+  && fc-cache -fv
 
 USER cnb

@@ -33,175 +33,186 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class LoveboxBot extends TelegramLongPollingBot {
 
-    private final LoveboxBotProperties botProperties;
-    private final ImageService imageService;
-    private final LoveboxService loveboxService;
+	private final LoveboxBotProperties botProperties;
 
-    private final Set<Long> chatIds = new TreeSet<>();
-    private final ConcurrentHashMap<String, String> loveboxMessageStore = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Collection<Pair<Long, Message>>> telegramMessageStore = new ConcurrentHashMap<>();
+	private final ImageService imageService;
 
-    @Scheduled(fixedRate = 20_000)
-    public void readMessageBox() {
-        List<Pair<String, String>> messages = loveboxService.getMessages();
-        messages.forEach(p -> {
-            loveboxMessageStore.computeIfPresent(p.left(), (key, value) -> {
-                if (!value.equals(p.right())) {
-                    Collection<Pair<Long, Message>> pairs = telegramMessageStore.get(p.left());
-                    if (pairs != null) {
-                        for (Pair<Long, Message> pair : pairs) {
-                            Message message = pair.right();
-                            if (message != null) {
-                                updatePhotoMessageCaption(message, p.right());
-                            }
-                        }
-                    }
-                }
-                return value;
-            });
-            loveboxMessageStore.put(p.left(), p.right());
-        });
-    }
+	private final LoveboxService loveboxService;
 
-    @Scheduled(fixedRate = 20_000)
-    public void receiveWaterfallOfHearts() {
-        String heartsRainId = loveboxService.receiveWaterfallOfHearts();
-        if (heartsRainId != null) {
-            chatIds.forEach(chatId -> sendTextMessage(chatId, "You received a waterfall of hearts! ❤❤❤"));
-        }
-    }
+	private final Set<Long> chatIds = new TreeSet<>();
 
-    @Override
-    public void onUpdateReceived(Update update) {
-        if (update.hasMessage()) {
+	private final ConcurrentHashMap<String, String> loveboxMessageStore = new ConcurrentHashMap<>();
 
-            // Retrieve Message
-            Message message = update.getMessage();
-            chatIds.add(message.getChat().getId());
+	private final ConcurrentHashMap<String, Collection<Pair<Long, Message>>> telegramMessageStore = new ConcurrentHashMap<>();
 
-            // Suppress Telegrams "/start" command
-            String text = message.getText();
-            if (text != null && text.startsWith("/start")) {
-                return;
-            }
+	@Scheduled(fixedRate = 20_000)
+	public void readMessageBox() {
+		List<Pair<String, String>> messages = loveboxService.getMessages();
+		messages.forEach(p -> {
+			loveboxMessageStore.computeIfPresent(p.left(), (key, value) -> {
+				if (!value.equals(p.right())) {
+					Collection<Pair<Long, Message>> pairs = telegramMessageStore.get(p.left());
+					if (pairs != null) {
+						for (Pair<Long, Message> pair : pairs) {
+							Message message = pair.right();
+							if (message != null) {
+								updatePhotoMessageCaption(message, p.right());
+							}
+						}
+					}
+				}
+				return value;
+			});
+			loveboxMessageStore.put(p.left(), p.right());
+		});
+	}
 
-            Pair<String, byte[]> imagePair = null;
+	@Scheduled(fixedRate = 20_000)
+	public void receiveWaterfallOfHearts() {
+		String heartsRainId = loveboxService.receiveWaterfallOfHearts();
+		if (heartsRainId != null) {
+			chatIds.forEach(chatId -> sendTextMessage(chatId, "You received a waterfall of hearts! ❤❤❤"));
+		}
+	}
 
-            // Create Lovebox Image
-            try {
-                if (message.hasPhoto()) {
-                    File file = downloadImageFromPhotoMessage(message);
-                    text = message.getCaption();
-                    imagePair = imageService.resizeImageToPair(file, text);
-                }
+	@Override
+	public void onUpdateReceived(Update update) {
+		if (update.hasMessage()) {
 
-                if (message.hasText()) {
-                    imagePair = imageService.createTextImageToPair(text);
-                }
+			// Retrieve Message
+			Message message = update.getMessage();
+			chatIds.add(message.getChat().getId());
 
-                // Set default message
-                if (imagePair == null) {
-                    imagePair = imageService.createFixedImageToPair();
-                }
-            } catch (RuntimeException e) {
-                // Suppress exception
-                log.error("Exception occurred: {}", e.getMessage(), e);
-            }
+			// Suppress Telegrams "/start" command
+			String text = message.getText();
+			if (text != null && text.startsWith("/start")) {
+				return;
+			}
 
-            Tripple<String, LocalDateTime, String> statusTripple = loveboxService.sendImageMessage(imagePair.left());
-            loveboxMessageStore.put(statusTripple.left(), statusTripple.right());
+			Pair<String, byte[]> imagePair = null;
 
-            // Send/respond Message
-            for (long chatId : chatIds) {
-                Message sentMessage = sendPhotoMessage(chatId, text, imagePair, statusTripple);
-                telegramMessageStore.compute(statusTripple.left(), (key, value) -> (value == null) ? new ArrayList<>() : value)
-                        .add(new Pair<>(chatId, sentMessage));
-            }
-        }
-    }
+			// Create Lovebox Image
+			try {
+				if (message.hasPhoto()) {
+					File file = downloadImageFromPhotoMessage(message);
+					text = message.getCaption();
+					imagePair = imageService.resizeImageToPair(file, text);
+				}
 
-    protected File downloadImageFromPhotoMessage(Message message) {
-        List<PhotoSize> photoSizes = message.getPhoto();
-        PhotoSize photoSize = photoSizes.get(photoSizes.size() - 1);
+				if (message.hasText()) {
+					imagePair = imageService.createTextImageToPair(text);
+				}
 
-        GetFile getFile = new GetFile();
-        getFile.setFileId(photoSize.getFileId());
-        try {
-            String filePath = execute(getFile).getFilePath();
-            File file = downloadFile(filePath);
-            log.debug("Download photo \"{}\" from {}", photoSize.getFileId(), filePath);
-            return file;
-        } catch (TelegramApiException | RuntimeException e) {
-            log.error("Failed to download photo \"{}\" due to error: {}", photoSize.getFileId(), e.getMessage());
-        }
-        return null;
-    }
+				// Set default message
+				if (imagePair == null) {
+					imagePair = imageService.createFixedImageToPair();
+				}
+			}
+			catch (RuntimeException e) {
+				// Suppress exception
+				log.error("Exception occurred: {}", e.getMessage(), e);
+			}
 
-    protected void sendTextMessage(long chatId, String text) {
-        String textMessage = text != null ? text : "";
-        SendMessage message = new SendMessage();
-        message.setChatId(String.valueOf(chatId));
-        message.setText(textMessage);
-        try {
-            execute(message);
-            log.debug("Sent message \"{}\" to {}", textMessage.replaceAll("\n", " "), chatId);
-        } catch (TelegramApiException | RuntimeException e) {
-            log.error("Failed to send message \"{}\" to {} due to error: {}", textMessage, chatId, e.getMessage());
-        }
-    }
+			Tripple<String, LocalDateTime, String> statusTripple = loveboxService.sendImageMessage(imagePair.left());
+			loveboxMessageStore.put(statusTripple.left(), statusTripple.right());
 
-    protected Message sendPhotoMessage(long chatId, String text, Pair<String, byte[]> imagePair, Tripple<String, LocalDateTime, String> statusTripple) {
-        String textMessage = text != null ? text : "";
-        SendPhoto message = new SendPhoto();
-        message.setChatId(String.valueOf(chatId));
-        message.setPhoto(new InputFile(new ByteArrayInputStream(imagePair.right()), "image.png"));
+			// Send/respond Message
+			for (long chatId : chatIds) {
+				Message sentMessage = sendPhotoMessage(chatId, text, imagePair, statusTripple);
+				telegramMessageStore
+					.compute(statusTripple.left(), (key, value) -> (value == null) ? new ArrayList<>() : value)
+					.add(new Pair<>(chatId, sentMessage));
+			}
+		}
+	}
 
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z");
-        String formattedDateTime = ZonedDateTime.of(statusTripple.middle(), ZoneId.of("Europe/London"))
-                .format(formatter);
-        String caption = String.format("Message: \"%s\" \nStatus: [%s].\nExecuted: %s",
-                textMessage != null ? textMessage.replaceAll("\n", " ") : "",
-                statusTripple.right(),
-                formattedDateTime);
-        message.setCaption(caption);
+	protected File downloadImageFromPhotoMessage(Message message) {
+		List<PhotoSize> photoSizes = message.getPhoto();
+		PhotoSize photoSize = photoSizes.get(photoSizes.size() - 1);
 
-        Message sentMessage = null;
-        try {
-            sentMessage = execute(message);
-            log.debug("Sent message \"{}\" to {}", textMessage.replaceAll("\n", " "), chatId);
-        } catch (TelegramApiException | RuntimeException e) {
-            log.error("Failed to send message \"{}\" to {} due to error: {}", textMessage, chatId, e.getMessage());
-        }
-        return sentMessage;
-    }
+		GetFile getFile = new GetFile();
+		getFile.setFileId(photoSize.getFileId());
+		try {
+			String filePath = execute(getFile).getFilePath();
+			File file = downloadFile(filePath);
+			log.debug("Download photo \"{}\" from {}", photoSize.getFileId(), filePath);
+			return file;
+		}
+		catch (TelegramApiException | RuntimeException e) {
+			log.error("Failed to download photo \"{}\" due to error: {}", photoSize.getFileId(), e.getMessage());
+		}
+		return null;
+	}
 
-    protected void updatePhotoMessageCaption(Message message, String status) {
-        String text = message.getCaption().replaceAll("\\[.*\\]\\.", "[" + status + "].");
-        String chatId = String.valueOf(message.getChatId());
-        EditMessageCaption editMessage = EditMessageCaption.builder()
-                .messageId(message.getMessageId())
-                .chatId(chatId)
-                .caption(text).build();
-        try {
-            execute(editMessage);
-            log.debug("Sent message \"{}\" to {}", text.replaceAll("\n", " "), chatId);
-        } catch (TelegramApiException | RuntimeException e) {
-            log.error("Failed to send message \"{}\" to {} due to error: {}", text, chatId, e.getMessage());
-        }
-    }
+	protected void sendTextMessage(long chatId, String text) {
+		String textMessage = text != null ? text : "";
+		SendMessage message = new SendMessage();
+		message.setChatId(String.valueOf(chatId));
+		message.setText(textMessage);
+		try {
+			execute(message);
+			log.debug("Sent message \"{}\" to {}", textMessage.replaceAll("\n", " "), chatId);
+		}
+		catch (TelegramApiException | RuntimeException e) {
+			log.error("Failed to send message \"{}\" to {} due to error: {}", textMessage, chatId, e.getMessage());
+		}
+	}
 
-    @Override
-    public void onRegister() {
-        log.info("Registering TelegramBot with Username: {}", getBotUsername());
-    }
+	protected Message sendPhotoMessage(long chatId, String text, Pair<String, byte[]> imagePair,
+			Tripple<String, LocalDateTime, String> statusTripple) {
+		String textMessage = text != null ? text : "";
+		SendPhoto message = new SendPhoto();
+		message.setChatId(String.valueOf(chatId));
+		message.setPhoto(new InputFile(new ByteArrayInputStream(imagePair.right()), "image.png"));
 
-    @Override
-    public String getBotUsername() {
-        return botProperties.getUsername();
-    }
+		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z");
+		String formattedDateTime = ZonedDateTime.of(statusTripple.middle(), ZoneId.of("Europe/London"))
+			.format(formatter);
+		String caption = String.format("Message: \"%s\" \nStatus: [%s].\nExecuted: %s",
+				textMessage != null ? textMessage.replaceAll("\n", " ") : "", statusTripple.right(), formattedDateTime);
+		message.setCaption(caption);
 
-    @Override
-    public String getBotToken() {
-        return botProperties.getToken();
-    }
+		Message sentMessage = null;
+		try {
+			sentMessage = execute(message);
+			log.debug("Sent message \"{}\" to {}", textMessage.replaceAll("\n", " "), chatId);
+		}
+		catch (TelegramApiException | RuntimeException e) {
+			log.error("Failed to send message \"{}\" to {} due to error: {}", textMessage, chatId, e.getMessage());
+		}
+		return sentMessage;
+	}
+
+	protected void updatePhotoMessageCaption(Message message, String status) {
+		String text = message.getCaption().replaceAll("\\[.*\\]\\.", "[" + status + "].");
+		String chatId = String.valueOf(message.getChatId());
+		EditMessageCaption editMessage = EditMessageCaption.builder()
+			.messageId(message.getMessageId())
+			.chatId(chatId)
+			.caption(text)
+			.build();
+		try {
+			execute(editMessage);
+			log.debug("Sent message \"{}\" to {}", text.replaceAll("\n", " "), chatId);
+		}
+		catch (TelegramApiException | RuntimeException e) {
+			log.error("Failed to send message \"{}\" to {} due to error: {}", text, chatId, e.getMessage());
+		}
+	}
+
+	@Override
+	public void onRegister() {
+		log.info("Registering TelegramBot with Username: {}", getBotUsername());
+	}
+
+	@Override
+	public String getBotUsername() {
+		return botProperties.getUsername();
+	}
+
+	@Override
+	public String getBotToken() {
+		return botProperties.getToken();
+	}
+
 }

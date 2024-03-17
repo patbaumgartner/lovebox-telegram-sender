@@ -7,8 +7,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "bot")
 public class LoveboxBotProperties {
 
-    /* Telegram username. */
-    private String username;
-    /* Telegram token. */
-    private String token;
+	/* Telegram username. */
+	private String username;
+
+	/* Telegram token. */
+	private String token;
+
 }
