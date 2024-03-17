@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   lovebox-telegram-sender:
-    image: patbaumgartner/lovebox-telegram-sender:0.0.1-SNAPSHOT
+    image: lovebox-telegram-sender:0.1.0-SNAPSHOT
     container_name: lovebox-telegram-sender
     env_file:
       - ./.env
