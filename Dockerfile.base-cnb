@@ -1,4 +1,4 @@
-FROM paketobuildpacks/run-jammy-base:latest
+FROM paketobuildpacks/run-jammy-tiny:latest
 
 USER root
 
