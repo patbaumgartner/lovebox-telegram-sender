@@ -1,9 +1,9 @@
 package com.patbaumgartner.lovebox.telegram.sender.rest.clients;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.service.annotation.PostExchange;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.service.annotation.PostExchange;
 
 public interface LoveboxRestClient {
 
