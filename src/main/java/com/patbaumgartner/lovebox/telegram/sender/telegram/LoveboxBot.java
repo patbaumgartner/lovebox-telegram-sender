@@ -4,20 +4,27 @@ import com.patbaumgartner.lovebox.telegram.sender.services.ImageService;
 import com.patbaumgartner.lovebox.telegram.sender.services.LoveboxService;
 import com.patbaumgartner.lovebox.telegram.sender.utils.Pair;
 import com.patbaumgartner.lovebox.telegram.sender.utils.Tripple;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.telegram.telegrambots.bots.TelegramLongPollingBot;
+import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
+import org.telegram.telegrambots.longpolling.BotSession;
+import org.telegram.telegrambots.longpolling.interfaces.LongPollingUpdateConsumer;
+import org.telegram.telegrambots.longpolling.starter.AfterBotRegistration;
+import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot;
+import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
 import org.telegram.telegrambots.meta.api.methods.GetFile;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageCaption;
 import org.telegram.telegrambots.meta.api.objects.InputFile;
-import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.PhotoSize;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.message.Message;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -31,7 +38,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class LoveboxBot extends TelegramLongPollingBot {
+public class LoveboxBot implements SpringLongPollingBot, LongPollingSingleThreadUpdateConsumer {
 
 	private final LoveboxBotProperties botProperties;
 
@@ -44,6 +51,13 @@ public class LoveboxBot extends TelegramLongPollingBot {
 	private final ConcurrentHashMap<String, String> loveboxMessageStore = new ConcurrentHashMap<>();
 
 	private final ConcurrentHashMap<String, Collection<Pair<Long, Message>>> telegramMessageStore = new ConcurrentHashMap<>();
+
+	private TelegramClient telegramClient;
+
+	@PostConstruct
+	public void init() {
+		telegramClient = new OkHttpTelegramClient(getBotToken());
+	}
 
 	@Scheduled(fixedRate = 20_000)
 	public void readMessageBox() {
@@ -76,7 +90,7 @@ public class LoveboxBot extends TelegramLongPollingBot {
 	}
 
 	@Override
-	public void onUpdateReceived(Update update) {
+	public void consume(Update update) {
 		if (update.hasMessage()) {
 
 			// Retrieve Message
@@ -130,11 +144,10 @@ public class LoveboxBot extends TelegramLongPollingBot {
 		List<PhotoSize> photoSizes = message.getPhoto();
 		PhotoSize photoSize = photoSizes.get(photoSizes.size() - 1);
 
-		GetFile getFile = new GetFile();
-		getFile.setFileId(photoSize.getFileId());
+		GetFile getFile = new GetFile(photoSize.getFileId());
 		try {
-			String filePath = execute(getFile).getFilePath();
-			File file = downloadFile(filePath);
+			String filePath = telegramClient.execute(getFile).getFilePath();
+			File file = telegramClient.downloadFile(filePath);
 			log.debug("Download photo \"{}\" from {}", photoSize.getFileId(), filePath);
 			return file;
 		}
@@ -146,11 +159,9 @@ public class LoveboxBot extends TelegramLongPollingBot {
 
 	protected void sendTextMessage(long chatId, String text) {
 		String textMessage = text != null ? text : "";
-		SendMessage message = new SendMessage();
-		message.setChatId(String.valueOf(chatId));
-		message.setText(textMessage);
+		SendMessage message = new SendMessage(String.valueOf(chatId), textMessage);
 		try {
-			execute(message);
+			telegramClient.execute(message);
 			log.debug("Sent message \"{}\" to {}", textMessage.replaceAll("\n", " "), chatId);
 		}
 		catch (TelegramApiException | RuntimeException e) {
@@ -161,9 +172,8 @@ public class LoveboxBot extends TelegramLongPollingBot {
 	protected Message sendPhotoMessage(long chatId, String text, Pair<String, byte[]> imagePair,
 			Tripple<String, LocalDateTime, String> statusTripple) {
 		String textMessage = text != null ? text : "";
-		SendPhoto message = new SendPhoto();
-		message.setChatId(String.valueOf(chatId));
-		message.setPhoto(new InputFile(new ByteArrayInputStream(imagePair.right()), "image.png"));
+		SendPhoto message = new SendPhoto(String.valueOf(chatId),
+				new InputFile(new ByteArrayInputStream(imagePair.right()), "image.png"));
 
 		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z");
 		String formattedDateTime = ZonedDateTime.of(statusTripple.middle(), ZoneId.of("Europe/London"))
@@ -174,7 +184,7 @@ public class LoveboxBot extends TelegramLongPollingBot {
 
 		Message sentMessage = null;
 		try {
-			sentMessage = execute(message);
+			sentMessage = telegramClient.execute(message);
 			log.debug("Sent message \"{}\" to {}", textMessage.replaceAll("\n", " "), chatId);
 		}
 		catch (TelegramApiException | RuntimeException e) {
@@ -192,7 +202,7 @@ public class LoveboxBot extends TelegramLongPollingBot {
 			.caption(text)
 			.build();
 		try {
-			execute(editMessage);
+			telegramClient.execute(editMessage);
 			log.debug("Sent message \"{}\" to {}", text.replaceAll("\n", " "), chatId);
 		}
 		catch (TelegramApiException | RuntimeException e) {
@@ -200,19 +210,20 @@ public class LoveboxBot extends TelegramLongPollingBot {
 		}
 	}
 
-	@Override
-	public void onRegister() {
-		log.info("Registering TelegramBot with Username: {}", getBotUsername());
-	}
-
-	@Override
-	public String getBotUsername() {
-		return botProperties.getUsername();
+	@AfterBotRegistration
+	public void afterRegistration(BotSession botSession) {
+		log.info("Registered TelegramBot with Username: {} running state is: {}", botProperties.getUsername(),
+				botSession.isRunning());
 	}
 
 	@Override
 	public String getBotToken() {
 		return botProperties.getToken();
+	}
+
+	@Override
+	public LongPollingUpdateConsumer getUpdatesConsumer() {
+		return this;
 	}
 
 }
