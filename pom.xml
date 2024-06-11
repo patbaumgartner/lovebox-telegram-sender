@@ -146,7 +146,7 @@
                         </publishRegistry>
                     </docker>
                     <image>
-                        <builder>paketobuildpacks/builder-jammy-buildpackless-tiny</builder>
+                        <builder>paketobuildpacks/builder-jammy-base</builder>
 
                         <buildpacks>
                             <buildpack>paketobuildpacks/java:latest</buildpack>
