@@ -1,7 +1,6 @@
 package com.patbaumgartner.lovebox.telegram.sender;
 
 import com.patbaumgartner.lovebox.telegram.sender.rest.clients.LoveboxRestClientProperties;
-import com.patbaumgartner.lovebox.telegram.sender.telegram.LoveboxBot;
 import com.patbaumgartner.lovebox.telegram.sender.telegram.LoveboxBotProperties;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
