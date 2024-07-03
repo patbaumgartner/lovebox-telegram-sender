@@ -2,6 +2,7 @@ package com.patbaumgartner.lovebox.telegram.sender;
 
 import com.patbaumgartner.lovebox.telegram.sender.rest.clients.LoveboxRestClientProperties;
 import com.patbaumgartner.lovebox.telegram.sender.telegram.LoveboxBotProperties;
+
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -25,7 +26,7 @@ public class LoveboxTelegramSenderApplication {
 
 	@Bean
 	@Profile("font-debug")
-	public CommandLineRunner commandLineRunner() {
+	CommandLineRunner commandLineRunner() {
 		return (args) -> {
 			String[] fonts = GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames();
 			System.out.println(fonts.length + " font families installed.");
