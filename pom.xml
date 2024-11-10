@@ -1,186 +1,181 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
 
-    <parent>
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.3.5</version>
+    <relativePath></relativePath>
+    <!-- lookup parent from repository -->
+  </parent>
+
+  <groupId>com.patbaumgartner</groupId>
+  <artifactId>lovebox-telegram-sender</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+
+  <name>Lovebox Telegram Sender</name>
+  <description>Lovebox Telegram Sender</description>
+
+  <properties>
+    <java.version>21</java.version>
+    <!-- Providing properties for CI build -->
+    <CI_REGISTRY></CI_REGISTRY>
+    <CI_REGISTRY_USER></CI_REGISTRY_USER>
+    <CI_REGISTRY_PASSWORD></CI_REGISTRY_PASSWORD>
+    <!-- Project properties for dependency management -->
+    <emoji4j.version>6.0</emoji4j.version>
+    <imgscalr.version>4.2</imgscalr.version>
+    <telegrambots.version>7.10.0</telegrambots.version>
+    <spring-javaformat-maven-plugin.version>0.0.43</spring-javaformat-maven-plugin.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-json</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.google.code.gson</groupId>
+      <artifactId>gson</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.telegram</groupId>
+      <artifactId>telegrambots-springboot-longpolling-starter</artifactId>
+      <version>${telegrambots.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.telegram</groupId>
+      <artifactId>telegrambots-client</artifactId>
+      <version>${telegrambots.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.imgscalr</groupId>
+      <artifactId>imgscalr-lib</artifactId>
+      <version>${imgscalr.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-configuration-processor</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <optional>true</optional>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+      <exclusions>
+        <!-- Removing due to duplicated JsonObject on the classpath -->
+        <exclusion>
+          <groupId>org.skyscreamer</groupId>
+          <artifactId>jsonassert</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
         <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.3.1</version>
-        <relativePath />
-        <!-- lookup parent from repository -->
-    </parent>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <excludes>
+            <exclude>
+              <groupId>org.projectlombok</groupId>
+              <artifactId>lombok</artifactId>
+            </exclude>
+          </excludes>
+          <docker>
+            <publishRegistry>
+              <username>${CI_REGISTRY_USER}</username>
+              <password>${CI_REGISTRY_PASSWORD}</password>
+              <url>${CI_REGISTRY}</url>
+            </publishRegistry>
+          </docker>
+          <image>
+            <builder>paketobuildpacks/builder-jammy-buildpackless-base:latest</builder>
 
-    <groupId>com.patbaumgartner</groupId>
-    <artifactId>lovebox-telegram-sender</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+            <buildpacks>
+              <buildpack>paketobuildpacks/java</buildpack>
+            </buildpacks>
 
-    <name>Lovebox Telegram Sender</name>
-    <description>Lovebox Telegram Sender</description>
+            <env>
+              <BP_SPRING_AOT_ENABLED>true</BP_SPRING_AOT_ENABLED>
 
-    <properties>
-        <java.version>21</java.version>
-        <!-- Providing properties for CI build -->
-        <CI_REGISTRY />
-        <CI_REGISTRY_USER />
-        <CI_REGISTRY_PASSWORD />
-        <!-- Project properties for dependency management -->
-        <emoji4j.version>6.0</emoji4j.version>
-        <imgscalr.version>4.2</imgscalr.version>
-        <telegrambots.version>7.10.0</telegrambots.version>
-        <spring-javaformat-maven-plugin.version>0.0.43</spring-javaformat-maven-plugin.version>
-    </properties>
+              <BP_JVM_CDS_ENABLED>false</BP_JVM_CDS_ENABLED>
+              <CDS_TRAINING_JAVA_TOOL_OPTIONS>-Dlovebox.enabled=false -Dtelegrambots.enabled=false</CDS_TRAINING_JAVA_TOOL_OPTIONS>
 
-    <dependencies>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-json</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.google.code.gson</groupId>
-            <artifactId>gson</artifactId>
-        </dependency>
+              <BP_JVM_JLINK_ENABLED>true</BP_JVM_JLINK_ENABLED>
+              <BP_JVM_JLINK_ARGS>--add-modules java.base,java.compiler,java.desktop,java.instrument,java.management,java.naming,java.net.http,java.prefs,java.scripting,java.sql,jdk.jfr,jdk.unsupported --compress=2 --no-header-files --no-man-pages --strip-debug</BP_JVM_JLINK_ARGS>
+            </env>
+          </image>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>build-info</goal>
+            </goals>
+            <configuration>
+              <additionalProperties>
+                <encoding.source>UTF-8</encoding.source>
+                <encoding.reporting>UTF-8</encoding.reporting>
+                <java.source>${java.version}</java.source>
+                <java.target>${java.version}</java.target>
+              </additionalProperties>
+            </configuration>
+          </execution>
+          <execution>
+            <id>process-aot</id>
+            <goals>
+              <goal>process-aot</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>io.spring.javaformat</groupId>
+        <artifactId>spring-javaformat-maven-plugin</artifactId>
+        <version>${spring-javaformat-maven-plugin.version}</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>validate</goal>
+            </goals>
+            <phase>validate</phase>
+            <inherited>true</inherited>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
 
-        <dependency>
-            <groupId>org.telegram</groupId>
-            <artifactId>telegrambots-springboot-longpolling-starter</artifactId>
-            <version>${telegrambots.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.telegram</groupId>
-            <artifactId>telegrambots-client</artifactId>
-            <version>${telegrambots.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.imgscalr</groupId>
-            <artifactId>imgscalr-lib</artifactId>
-            <version>${imgscalr.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-configuration-processor</artifactId>
-            <optional>true</optional>
-        </dependency>
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <optional>true</optional>
-        </dependency>
-
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-            <exclusions>
-                <!-- Removing due to duplicated JsonObject on the classpath -->
-                <exclusion>
-                    <groupId>org.skyscreamer</groupId>
-                    <artifactId>jsonassert</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-    </dependencies>
-
-    <repositories>
-        <repository>
-            <id>spring-milestones</id>
-            <name>Spring Milestones</name>
-            <url>https://repo.spring.io/milestone</url>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-        </repository>
-    </repositories>
-    <pluginRepositories>
-        <pluginRepository>
-            <id>spring-milestones</id>
-            <name>Spring Milestones</name>
-            <url>https://repo.spring.io/milestone</url>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-        </pluginRepository>
-    </pluginRepositories>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>build-info</goal>
-                        </goals>
-                        <configuration>
-                            <additionalProperties>
-                                <encoding.source>UTF-8</encoding.source>
-                                <encoding.reporting>UTF-8</encoding.reporting>
-                                <java.source>${java.version}</java.source>
-                                <java.target>${java.version}</java.target>
-                            </additionalProperties>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>process-aot</id>
-                        <goals>
-                            <goal>process-aot</goal>
-                        </goals>
-                    </execution>
-                </executions>
-                <configuration>
-                    <excludes>
-                        <exclude>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                        </exclude>
-                    </excludes>
-                    <docker>
-                        <publishRegistry>
-                            <username>${CI_REGISTRY_USER}</username>
-                            <password>${CI_REGISTRY_PASSWORD}</password>
-                            <url>${CI_REGISTRY}</url>
-                        </publishRegistry>
-                    </docker>
-                    <image>
-                        <builder>paketobuildpacks/builder-jammy-base</builder>
-
-                        <buildpacks>
-                            <buildpack>paketobuildpacks/java</buildpack>
-                        </buildpacks>
-
-                        <env>
-                            <BP_SPRING_AOT_ENABLED>true</BP_SPRING_AOT_ENABLED>
-                            <BP_JVM_CDS_ENABLED>false</BP_JVM_CDS_ENABLED>
-
-                            <CDS_TRAINING_JAVA_TOOL_OPTIONS>-Dlovebox.enabled=false
-                                -Dtelegrambots.enabled=false</CDS_TRAINING_JAVA_TOOL_OPTIONS>
-
-                            <BP_JVM_JLINK_ENABLED>true</BP_JVM_JLINK_ENABLED>
-                            <BP_JVM_JLINK_ARGS>--add-modules
-                                jdk.management.agent,java.base,java.logging,java.xml,jdk.unsupported,java.sql,java.naming,java.desktop,java.management,java.security.jgss,java.instrument,jdk.crypto.ec,jdk.crypto.cryptoki
-                                --no-header-files --no-man-pages --strip-debug</BP_JVM_JLINK_ARGS>
-                        </env>
-                    </image>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>io.spring.javaformat</groupId>
-                <artifactId>spring-javaformat-maven-plugin</artifactId>
-                <version>${spring-javaformat-maven-plugin.version}</version>
-                <executions>
-                    <execution>
-                        <phase>validate</phase>
-                        <inherited>true</inherited>
-                        <goals>
-                            <goal>validate</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
+  <repositories>
+    <repository>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+      <id>spring-milestones</id>
+      <name>Spring Milestones</name>
+      <url>https://repo.spring.io/milestone</url>
+    </repository>
+  </repositories>
+  <pluginRepositories>
+    <pluginRepository>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+      <id>spring-milestones</id>
+      <name>Spring Milestones</name>
+      <url>https://repo.spring.io/milestone</url>
+    </pluginRepository>
+  </pluginRepositories>
 </project>
