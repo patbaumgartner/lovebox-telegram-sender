@@ -123,12 +123,11 @@
             <builder>paketobuildpacks/builder-jammy-buildpackless-base:latest</builder>
 
             <buildpacks>
+              <buildpack>gcr.io/paketo-buildpacks/adoptium</buildpack>
               <buildpack>paketobuildpacks/java</buildpack>
             </buildpacks>
 
             <env>
-              <BP_EMBED_CERTS>true</BP_EMBED_CERTS>
-              
               <BP_SPRING_AOT_ENABLED>true</BP_SPRING_AOT_ENABLED>
 
               <BP_JVM_CDS_ENABLED>false</BP_JVM_CDS_ENABLED>
