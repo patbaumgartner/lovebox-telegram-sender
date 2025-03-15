@@ -118,6 +118,10 @@
             </publishRegistry>
           </docker>
           <image>
+           
+            <!-- Builder needs to match run-image from Dockerfile.base-cnb -->
+            <builder>paketobuildpacks/builder-jammy-buildpackless-base:latest</builder>
+
             <buildpacks>
               <buildpack>paketobuildpacks/java</buildpack>
             </buildpacks>
