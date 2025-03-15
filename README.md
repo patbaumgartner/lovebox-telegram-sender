@@ -200,6 +200,12 @@ mvn spring-boot:build-image \
  -DCI_REGISTRY_PASSWORD=${DCI_REGISTRY_PASSWORD}
 ```
 
+### Running the Application from Maven
+
+```bash
+mvn spring-boot:run -Dspring-boot.run.profiles=local
+```
+
 ### Fixing Known Issues with Missing Fonts
 
 Since the application uses fonts, we need to make sure that fonts are part of the Docker container. The containers created above will throw an exception if they are `java.lang.NullPointerException`: Cannot load from short array because `sun.awt.FontConfiguration.head` is null.
