@@ -132,9 +132,6 @@
 
               <BP_JVM_CDS_ENABLED>false</BP_JVM_CDS_ENABLED>
               <CDS_TRAINING_JAVA_TOOL_OPTIONS>-Dlovebox.enabled=false -Dtelegrambots.enabled=false</CDS_TRAINING_JAVA_TOOL_OPTIONS>
-
-              <BP_JVM_JLINK_ENABLED>true</BP_JVM_JLINK_ENABLED>
-              <BP_JVM_JLINK_ARGS>--add-modules java.base,java.compiler,java.desktop,java.instrument,java.management,java.naming,java.net.http,java.prefs,java.scripting,java.sql,jdk.jfr,jdk.unsupported --compress=2 --no-header-files --no-man-pages --strip-debug</BP_JVM_JLINK_ARGS>
             </env>
           </image>
         </configuration>
