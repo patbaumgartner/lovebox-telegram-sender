@@ -127,6 +127,8 @@
             </buildpacks>
 
             <env>
+              <BP_EMBED_CERTS>true</BP_EMBED_CERTS>
+              
               <BP_SPRING_AOT_ENABLED>true</BP_SPRING_AOT_ENABLED>
 
               <BP_JVM_CDS_ENABLED>false</BP_JVM_CDS_ENABLED>
