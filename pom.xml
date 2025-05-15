@@ -27,7 +27,7 @@
     <emoji4j.version>6.0</emoji4j.version>
     <imgscalr.version>4.2</imgscalr.version>
     <telegrambots.version>8.3.0</telegrambots.version>
-    <spring-javaformat-maven-plugin.version>0.0.43</spring-javaformat-maven-plugin.version>
+    <spring-javaformat-maven-plugin.version>0.0.44</spring-javaformat-maven-plugin.version>
   </properties>
 
   <dependencies>
