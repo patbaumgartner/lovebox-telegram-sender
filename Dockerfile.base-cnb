@@ -1,4 +1,4 @@
-FROM paketobuildpacks/run-noble-tiny:latest
+FROM paketobuildpacks/run-noble-base:latest
 
 USER root
 
