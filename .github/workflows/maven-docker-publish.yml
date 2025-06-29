@@ -47,7 +47,7 @@ jobs:
         uses: docker/build-push-action@v6.18.0
         with:
           push: true
-          tags: patbaumgartner/run-jammy-base:latest
+          tags: patbaumgartner/run-noble-tiny:latest
           file: Dockerfile.base-cnb
 
       - name: Set up JDK
@@ -66,7 +66,7 @@ jobs:
           mvn spring-boot:build-image \
             --batch-mode --no-transfer-progress \
             -Dspring-boot.build-image.imageName=${{ steps.meta.outputs.tags }} \
-            -Dspring-boot.build-image.runImage=patbaumgartner/run-jammy-base:latest \
+            -Dspring-boot.build-image.runImage=patbaumgartner/run-noble-tiny:latest \
             -Dspring-boot.build-image.publish=true \
             -DCI_REGISTRY=https://index.docker.io/v1/ \
             -DCI_REGISTRY_USER=${{ secrets.DOCKER_USERNAME }} \
