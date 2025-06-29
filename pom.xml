@@ -5,7 +5,7 @@
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>3.4.4</version>
+    <version>3.5.3</version>
     <relativePath></relativePath>
     <!-- lookup parent from repository -->
   </parent>
@@ -119,15 +119,10 @@
           </docker>
           <image>
             <!-- Builder needs to match run-image from Dockerfile.base-cnb -->
-            <builder>paketobuildpacks/builder-jammy-buildpackless-base:latest</builder>
-            <buildpacks>
-              <buildpack>paketobuildpacks/java</buildpack>
-            </buildpacks>
-
+            <builder>paketobuildpacks/builder-noble-java-tiny:latest</builder>
             <env>
-              <BP_SPRING_AOT_ENABLED>true</BP_SPRING_AOT_ENABLED>
-
-              <BP_JVM_CDS_ENABLED>false</BP_JVM_CDS_ENABLED>
+              <!-- BP_SPRING_AOT_ENABLED>false</BP_SPRING_AOT_ENABLED -->
+              <BP_JVM_CDS_ENABLED>true</BP_JVM_CDS_ENABLED>
               <CDS_TRAINING_JAVA_TOOL_OPTIONS>-Dlovebox.enabled=false -Dtelegrambots.enabled=false</CDS_TRAINING_JAVA_TOOL_OPTIONS>
             </env>
           </image>
