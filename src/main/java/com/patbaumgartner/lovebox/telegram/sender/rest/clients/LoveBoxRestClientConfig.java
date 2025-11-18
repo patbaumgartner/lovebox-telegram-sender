@@ -12,7 +12,7 @@ public class LoveBoxRestClientConfig {
 	private final String LOVEBOX_REST_API = "https://app-api.loveboxlove.com";
 
 	@Bean
-	public LoveboxRestClient loveboxRestClient() {
+	LoveboxRestClient loveboxRestClient() {
 		RestClient restClient = RestClient.create(LOVEBOX_REST_API);
 
 		HttpServiceProxyFactory factory = HttpServiceProxyFactory.builderFor(RestClientAdapter.create(restClient))
