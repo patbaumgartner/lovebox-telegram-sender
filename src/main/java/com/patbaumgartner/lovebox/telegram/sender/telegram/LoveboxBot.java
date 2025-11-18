@@ -152,7 +152,7 @@ public class LoveboxBot implements SpringLongPollingBot, LongPollingSingleThread
 			return file;
 		}
 		catch (TelegramApiException | RuntimeException e) {
-			log.error("Failed to download photo \"{}\" due to error: {}", photoSize.getFileId(), e.getMessage());
+			log.error("Failed to download photo \"{}\" due to error: {}", photoSize.getFileId(), e.getMessage(), e);
 		}
 		return null;
 	}
@@ -162,10 +162,13 @@ public class LoveboxBot implements SpringLongPollingBot, LongPollingSingleThread
 		SendMessage message = new SendMessage(String.valueOf(chatId), textMessage);
 		try {
 			telegramClient.execute(message);
-			log.debug("Sent message \"{}\" to {}", textMessage.replaceAll("\n", " "), chatId);
+			log.atDebug()
+				.addArgument(() -> textMessage.replaceAll("\n", " "))
+				.addArgument(chatId)
+				.log("Sent message \"{}\" to {}");
 		}
 		catch (TelegramApiException | RuntimeException e) {
-			log.error("Failed to send message \"{}\" to {} due to error: {}", textMessage, chatId, e.getMessage());
+			log.error("Failed to send message \"{}\" to {} due to error: {}", textMessage, chatId, e.getMessage(), e);
 		}
 	}
 
@@ -178,17 +181,20 @@ public class LoveboxBot implements SpringLongPollingBot, LongPollingSingleThread
 		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z");
 		String formattedDateTime = ZonedDateTime.of(statusTripple.middle(), ZoneId.of("Europe/London"))
 			.format(formatter);
-		String caption = String.format("Message: \"%s\" \nStatus: [%s].\nExecuted: %s",
+		String caption = "Message: \"%s\" \nStatus: [%s].\nExecuted: %s".formatted(
 				textMessage != null ? textMessage.replaceAll("\n", " ") : "", statusTripple.right(), formattedDateTime);
 		message.setCaption(caption);
 
 		Message sentMessage = null;
 		try {
 			sentMessage = telegramClient.execute(message);
-			log.debug("Sent message \"{}\" to {}", textMessage.replaceAll("\n", " "), chatId);
+			log.atDebug()
+				.addArgument(() -> textMessage.replaceAll("\n", " "))
+				.addArgument(chatId)
+				.log("Sent message \"{}\" to {}");
 		}
 		catch (TelegramApiException | RuntimeException e) {
-			log.error("Failed to send message \"{}\" to {} due to error: {}", textMessage, chatId, e.getMessage());
+			log.error("Failed to send message \"{}\" to {} due to error: {}", textMessage, chatId, e.getMessage(), e);
 		}
 		return sentMessage;
 	}
@@ -203,10 +209,13 @@ public class LoveboxBot implements SpringLongPollingBot, LongPollingSingleThread
 			.build();
 		try {
 			telegramClient.execute(editMessage);
-			log.debug("Sent message \"{}\" to {}", text.replaceAll("\n", " "), chatId);
+			log.atDebug()
+				.addArgument(() -> text.replaceAll("\n", " "))
+				.addArgument(chatId)
+				.log("Sent message \"{}\" to {}");
 		}
 		catch (TelegramApiException | RuntimeException e) {
-			log.error("Failed to send message \"{}\" to {} due to error: {}", text, chatId, e.getMessage());
+			log.error("Failed to send message \"{}\" to {} due to error: {}", text, chatId, e.getMessage(), e);
 		}
 	}
 

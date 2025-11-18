@@ -34,8 +34,7 @@ public class LoveboxService {
 			log.debug("CheckEmail response: {}", checkEmailResponse);
 			CheckEmailResponseBody checkEmailResponseBody = checkEmailResponse.getBody();
 			if (!checkEmailResponseBody.existingUser()) {
-				throw new IllegalStateException(
-						String.format("User %s does not exists!", restClientProperties.getEmail()));
+				throw new IllegalStateException("User %s does not exists!".formatted(restClientProperties.getEmail()));
 			}
 		}
 	}

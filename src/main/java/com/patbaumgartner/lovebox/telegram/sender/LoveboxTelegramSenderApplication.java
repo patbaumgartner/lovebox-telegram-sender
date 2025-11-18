@@ -2,7 +2,6 @@ package com.patbaumgartner.lovebox.telegram.sender;
 
 import com.patbaumgartner.lovebox.telegram.sender.rest.clients.LoveboxRestClientProperties;
 import com.patbaumgartner.lovebox.telegram.sender.telegram.LoveboxBotProperties;
-
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -11,7 +10,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
-import java.awt.*;
+import java.awt.Font;
+import java.awt.GraphicsEnvironment;
 import java.util.ArrayList;
 import java.util.List;
 
