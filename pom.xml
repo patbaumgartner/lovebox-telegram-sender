@@ -18,7 +18,7 @@
   <description>Lovebox Telegram Sender</description>
 
   <properties>
-    <java.version>21</java.version>
+    <java.version>25</java.version>
     <!-- Providing properties for CI build -->
     <CI_REGISTRY></CI_REGISTRY>
     <CI_REGISTRY_USER></CI_REGISTRY_USER>
@@ -122,8 +122,8 @@
             <builder>paketobuildpacks/builder-noble-java-tiny:latest</builder>
             <env>
               <!-- BP_SPRING_AOT_ENABLED>false</BP_SPRING_AOT_ENABLED -->
-              <BP_JVM_CDS_ENABLED>true</BP_JVM_CDS_ENABLED>
-              <CDS_TRAINING_JAVA_TOOL_OPTIONS>-Dlovebox.enabled=false -Dtelegrambots.enabled=false</CDS_TRAINING_JAVA_TOOL_OPTIONS>
+              <BP_JVM_AOTCACHE_ENABLED>true</BP_JVM_AOTCACHE_ENABLED>
+              <TRAINING_JAVA_TOOL_OPTIONS>-Dlovebox.enabled=false -Dtelegrambots.enabled=false</TRAINING_JAVA_TOOL_OPTIONS>
             </env>
           </image>
         </configuration>
