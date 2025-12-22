@@ -123,7 +123,7 @@
             <env>
               <!-- BP_SPRING_AOT_ENABLED>false</BP_SPRING_AOT_ENABLED -->
               <BP_JVM_AOTCACHE_ENABLED>true</BP_JVM_AOTCACHE_ENABLED>
-              <TRAINING_JAVA_TOOL_OPTIONS>-Dlovebox.enabled=false -Dtelegrambots.enabled=false</TRAINING_JAVA_TOOL_OPTIONS>
+              <TRAINING_RUN_JAVA_TOOL_OPTIONS>-Dlovebox.enabled=false -Dtelegrambots.enabled=false</TRAINING_RUN_JAVA_TOOL_OPTIONS>
             </env>
           </image>
         </configuration>
