@@ -1,4 +1,4 @@
-FROM paketobuildpacks/run-noble-base:latest
+FROM paketobuildpacks/ubuntu-noble-run:latest
 
 USER root
 
