@@ -137,7 +137,7 @@ public class ImageService {
 		int yInitialOffset = (lines.length - 1) * lineHeight;
 
 		int x = 0;
-		int y = (fm.getAscent() + (DISPLAY_HEIGHT - (fm.getAscent() + fm.getDescent()) - yInitialOffset) / 2);
+		int y = fm.getAscent() + (DISPLAY_HEIGHT - (fm.getAscent() + fm.getDescent()) - yInitialOffset) / 2;
 
 		for (String line : lines) {
 			x = (DISPLAY_WIDTH - fm.stringWidth(line)) / 2;

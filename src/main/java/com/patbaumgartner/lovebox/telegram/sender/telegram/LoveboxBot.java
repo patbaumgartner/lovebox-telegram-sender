@@ -134,7 +134,7 @@ public class LoveboxBot implements SpringLongPollingBot, LongPollingSingleThread
 			for (long chatId : chatIds) {
 				Message sentMessage = sendPhotoMessage(chatId, text, imagePair, statusTripple);
 				telegramMessageStore
-					.compute(statusTripple.left(), (key, value) -> (value == null) ? new ArrayList<>() : value)
+					.compute(statusTripple.left(), (key, value) -> value == null ? new ArrayList<>() : value)
 					.add(new Pair<>(chatId, sentMessage));
 			}
 		}
