@@ -27,7 +27,7 @@ public class LoveboxTelegramSenderApplication {
 	@Bean
 	@Profile("font-debug")
 	CommandLineRunner commandLineRunner() {
-		return (args) -> {
+		return args -> {
 			String[] fonts = GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames();
 			System.out.println(fonts.length + " font families installed.");
 

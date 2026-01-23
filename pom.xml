@@ -5,7 +5,7 @@
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>4.0.1</version>
+    <version>4.0.2</version>
     <relativePath></relativePath>
     <!-- lookup parent from repository -->
   </parent>
@@ -18,16 +18,16 @@
   <description>Lovebox Telegram Sender</description>
 
   <properties>
-    <java.version>25</java.version>
     <!-- Providing properties for CI build -->
     <CI_REGISTRY></CI_REGISTRY>
-    <CI_REGISTRY_USER></CI_REGISTRY_USER>
     <CI_REGISTRY_PASSWORD></CI_REGISTRY_PASSWORD>
+    <CI_REGISTRY_USER></CI_REGISTRY_USER>
     <!-- Project properties for dependency management -->
     <emoji4j.version>6.0</emoji4j.version>
     <imgscalr.version>4.2</imgscalr.version>
-    <telegrambots.version>9.2.1</telegrambots.version>
+    <java.version>25</java.version>
     <spring-javaformat-maven-plugin.version>0.0.47</spring-javaformat-maven-plugin.version>
+    <telegrambots.version>9.2.1</telegrambots.version>
   </properties>
 
   <dependencies>
