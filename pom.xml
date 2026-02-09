@@ -27,7 +27,7 @@
     <imgscalr.version>4.2</imgscalr.version>
     <java.version>25</java.version>
     <spring-javaformat-maven-plugin.version>0.0.47</spring-javaformat-maven-plugin.version>
-    <telegrambots.version>9.2.1</telegrambots.version>
+    <telegrambots.version>9.3.0</telegrambots.version>
   </properties>
 
   <dependencies>
