@@ -25,6 +25,7 @@
     <!-- Project properties for dependency management -->
     <emoji4j.version>6.0</emoji4j.version>
     <imgscalr.version>4.2</imgscalr.version>
+    <jacoco-maven-plugin.version>0.8.13</jacoco-maven-plugin.version>
     <java.version>25</java.version>
     <spring-javaformat-maven-plugin.version>0.0.47</spring-javaformat-maven-plugin.version>
     <telegrambots.version>9.2.1</telegrambots.version>
@@ -160,6 +161,26 @@
             </goals>
             <phase>validate</phase>
             <inherited>true</inherited>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>${jacoco-maven-plugin.version}</version>
+        <executions>
+          <execution>
+            <id>prepare-agent</id>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>report</id>
+            <goals>
+              <goal>report</goal>
+            </goals>
+            <phase>verify</phase>
           </execution>
         </executions>
       </plugin>
