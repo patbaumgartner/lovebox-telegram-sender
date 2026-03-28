@@ -28,7 +28,7 @@
     <jacoco-maven-plugin.version>0.8.14</jacoco-maven-plugin.version>
     <java.version>25</java.version>
     <spring-javaformat-maven-plugin.version>0.0.47</spring-javaformat-maven-plugin.version>
-    <telegrambots.version>9.4.0</telegrambots.version>
+    <telegrambots.version>9.5.0</telegrambots.version>
   </properties>
 
   <dependencies>
