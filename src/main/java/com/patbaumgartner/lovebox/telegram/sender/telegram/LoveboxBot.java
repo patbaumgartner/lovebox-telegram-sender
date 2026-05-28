@@ -3,7 +3,7 @@ package com.patbaumgartner.lovebox.telegram.sender.telegram;
 import com.patbaumgartner.lovebox.telegram.sender.services.ImageService;
 import com.patbaumgartner.lovebox.telegram.sender.services.LoveboxService;
 import com.patbaumgartner.lovebox.telegram.sender.utils.Pair;
-import com.patbaumgartner.lovebox.telegram.sender.utils.Tripple;
+import com.patbaumgartner.lovebox.telegram.sender.utils.Triple;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,7 +32,11 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
@@ -127,7 +131,7 @@ public class LoveboxBot implements SpringLongPollingBot, LongPollingSingleThread
 				log.error("Exception occurred: {}", e.getMessage(), e);
 			}
 
-			Tripple<String, LocalDateTime, String> statusTripple = loveboxService.sendImageMessage(imagePair.left());
+			Triple<String, LocalDateTime, String> statusTripple = loveboxService.sendImageMessage(imagePair.left());
 			loveboxMessageStore.put(statusTripple.left(), statusTripple.right());
 
 			// Send/respond Message
@@ -173,7 +177,7 @@ public class LoveboxBot implements SpringLongPollingBot, LongPollingSingleThread
 	}
 
 	protected Message sendPhotoMessage(long chatId, String text, Pair<String, byte[]> imagePair,
-			Tripple<String, LocalDateTime, String> statusTripple) {
+			Triple<String, LocalDateTime, String> statusTripple) {
 		String textMessage = text != null ? text : "";
 		SendPhoto message = new SendPhoto(String.valueOf(chatId),
 				new InputFile(new ByteArrayInputStream(imagePair.right()), "image.png"));
@@ -221,13 +225,13 @@ public class LoveboxBot implements SpringLongPollingBot, LongPollingSingleThread
 
 	@AfterBotRegistration
 	public void afterRegistration(BotSession botSession) {
-		log.info("Registered TelegramBot with Username: {} running state is: {}", botProperties.getUsername(),
+		log.info("Registered TelegramBot with Username: {} running state is: {}", botProperties.username(),
 				botSession.isRunning());
 	}
 
 	@Override
 	public String getBotToken() {
-		return botProperties.getToken();
+		return botProperties.token();
 	}
 
 	@Override
