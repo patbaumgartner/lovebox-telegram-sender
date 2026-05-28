@@ -11,7 +11,7 @@ public interface LoveboxRestClient {
 	ResponseEntity<CheckEmailResponseBody> checkEmail(@RequestBody CheckEmailRequestBody request);
 
 	@PostExchange("/v1/auth/loginWithPassword")
-	ResponseEntity<LoginWithPasswordResponseBody> loginWithPassword(@RequestBody LoginWithPasswordlRequestBody request);
+	ResponseEntity<LoginWithPasswordResponseBody> loginWithPassword(@RequestBody LoginWithPasswordRequestBody request);
 
 	@PostExchange("/v1/graphql")
 	ResponseEntity<String> graphql(@RequestHeader("authorization") String authorization,

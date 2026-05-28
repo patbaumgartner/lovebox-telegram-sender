@@ -2,7 +2,6 @@ package com.patbaumgartner.lovebox.telegram.sender.services;
 
 import com.patbaumgartner.lovebox.telegram.sender.utils.Pair;
 import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.imgscalr.Scalr;
 import org.springframework.core.io.Resource;
@@ -10,15 +9,20 @@ import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
 
 import javax.imageio.ImageIO;
-import java.awt.*;
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics2D;
+import java.awt.Image;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.NoSuchElementException;
-import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Slf4j
 @Component
@@ -39,69 +43,78 @@ public class ImageService {
 
 	public static final String FONT_NAME = "Sans";
 
-	public final ResourceLoader resourceLoader;
+	private final ResourceLoader resourceLoader;
 
-	@SneakyThrows
 	public Pair<String, byte[]> resizeImageToPair(File file, String text) {
-		BufferedImage originalImage = ImageIO.read(file);
-		BufferedImage resizedImage = Scalr.resize(originalImage, Scalr.Method.AUTOMATIC, Scalr.Mode.AUTOMATIC,
-				DISPLAY_WIDTH, DISPLAY_HEIGHT, Scalr.OP_ANTIALIAS);
+		try {
+			BufferedImage originalImage = ImageIO.read(file);
+			BufferedImage resizedImage = Scalr.resize(originalImage, Scalr.Method.AUTOMATIC, Scalr.Mode.AUTOMATIC,
+					DISPLAY_WIDTH, DISPLAY_HEIGHT, Scalr.OP_ANTIALIAS);
 
-		BufferedImage image = new BufferedImage(DISPLAY_WIDTH, DISPLAY_HEIGHT, BufferedImage.TYPE_INT_ARGB);
-		Graphics2D graphics = image.createGraphics();
-		graphics.setColor(Color.black);
-		graphics.fillRect(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT);
+			BufferedImage image = new BufferedImage(DISPLAY_WIDTH, DISPLAY_HEIGHT, BufferedImage.TYPE_INT_ARGB);
+			Graphics2D graphics = image.createGraphics();
+			graphics.setColor(Color.black);
+			graphics.fillRect(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT);
 
-		int x = (DISPLAY_WIDTH - resizedImage.getWidth()) / 2;
-		int y = (DISPLAY_HEIGHT - resizedImage.getHeight()) / 2;
+			int x = (DISPLAY_WIDTH - resizedImage.getWidth()) / 2;
+			int y = (DISPLAY_HEIGHT - resizedImage.getHeight()) / 2;
 
-		graphics.drawImage(resizedImage, x, y, null);
+			graphics.drawImage(resizedImage, x, y, null);
 
-		if (text != null) {
-			drawCenteredMessage(graphics, text);
+			if (text != null) {
+				drawCenteredMessage(graphics, text);
+			}
+
+			graphics.dispose();
+
+			return constructImagePair(image);
 		}
-
-		graphics.dispose();
-
-		return constructImagePair(image);
+		catch (IOException e) {
+			throw new UncheckedIOException(e);
+		}
 	}
 
-	@SneakyThrows
 	public Pair<String, byte[]> createTextImageToPair(String message) {
-		BufferedImage image = new BufferedImage(DISPLAY_WIDTH, DISPLAY_HEIGHT, BufferedImage.TYPE_INT_ARGB);
-		Graphics2D graphics = image.createGraphics();
+		try {
+			BufferedImage image = new BufferedImage(DISPLAY_WIDTH, DISPLAY_HEIGHT, BufferedImage.TYPE_INT_ARGB);
+			Graphics2D graphics = image.createGraphics();
 
-		// Set background color
-		Random rnd = new Random();
-		int red = rnd.nextInt(256);
-		int green = rnd.nextInt(256);
-		int blue = rnd.nextInt(256);
-		Color color = new Color(red, green, blue);
-		graphics.setColor(color);
-		graphics.fillRect(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT);
+			// Set background color
+			Color color = new Color(ThreadLocalRandom.current().nextInt(256), ThreadLocalRandom.current().nextInt(256),
+					ThreadLocalRandom.current().nextInt(256));
+			graphics.setColor(color);
+			graphics.fillRect(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT);
 
-		if (message != null) {
-			drawCenteredMessage(graphics, message);
+			if (message != null) {
+				drawCenteredMessage(graphics, message);
+			}
+
+			graphics.dispose();
+
+			return constructImagePair(image);
 		}
-
-		graphics.dispose();
-
-		return constructImagePair(image);
+		catch (IOException e) {
+			throw new UncheckedIOException(e);
+		}
 	}
 
-	@SneakyThrows
 	public Pair<String, byte[]> createFixedImageToPair() {
-		Resource resource = resourceLoader.getResource("lovebox.jpeg");
-		Image image = ImageIO.read(resource.getInputStream());
-		image = image.getScaledInstance(DISPLAY_WIDTH, DISPLAY_HEIGHT, Image.SCALE_SMOOTH);
-		BufferedImage bufferedImage = new BufferedImage(DISPLAY_WIDTH, DISPLAY_HEIGHT, BufferedImage.TYPE_INT_ARGB);
+		try {
+			Resource resource = resourceLoader.getResource("lovebox.jpeg");
+			Image image = ImageIO.read(resource.getInputStream());
+			image = image.getScaledInstance(DISPLAY_WIDTH, DISPLAY_HEIGHT, Image.SCALE_SMOOTH);
+			BufferedImage bufferedImage = new BufferedImage(DISPLAY_WIDTH, DISPLAY_HEIGHT, BufferedImage.TYPE_INT_ARGB);
 
-		Graphics2D graphics = bufferedImage.createGraphics();
-		graphics.drawImage(image, 0, 0, null);
+			Graphics2D graphics = bufferedImage.createGraphics();
+			graphics.drawImage(image, 0, 0, null);
 
-		graphics.dispose();
+			graphics.dispose();
 
-		return constructImagePair(bufferedImage);
+			return constructImagePair(bufferedImage);
+		}
+		catch (IOException e) {
+			throw new UncheckedIOException(e);
+		}
 	}
 
 	protected void drawCenteredMessage(Graphics2D graphics, String text) {
@@ -151,7 +164,7 @@ public class ImageService {
 		ImageIO.write(image, "png", output);
 		String base64Image = Base64.getEncoder().encodeToString(output.toByteArray());
 
-		return new Pair("data:image/png;base64," + base64Image, output.toByteArray());
+		return new Pair<>("data:image/png;base64," + base64Image, output.toByteArray());
 	}
 
 }

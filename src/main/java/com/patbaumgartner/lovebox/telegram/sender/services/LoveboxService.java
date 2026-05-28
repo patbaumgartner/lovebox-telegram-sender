@@ -4,18 +4,27 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.patbaumgartner.lovebox.telegram.sender.rest.clients.*;
+import com.patbaumgartner.lovebox.telegram.sender.rest.clients.CheckEmailRequestBody;
+import com.patbaumgartner.lovebox.telegram.sender.rest.clients.CheckEmailResponseBody;
+import com.patbaumgartner.lovebox.telegram.sender.rest.clients.GraphqlRequestBody;
+import com.patbaumgartner.lovebox.telegram.sender.rest.clients.LoginWithPasswordRequestBody;
+import com.patbaumgartner.lovebox.telegram.sender.rest.clients.LoginWithPasswordResponseBody;
+import com.patbaumgartner.lovebox.telegram.sender.rest.clients.LoveboxRestClient;
+import com.patbaumgartner.lovebox.telegram.sender.rest.clients.LoveboxRestClientProperties;
 import com.patbaumgartner.lovebox.telegram.sender.utils.Pair;
-import com.patbaumgartner.lovebox.telegram.sender.utils.Tripple;
+import com.patbaumgartner.lovebox.telegram.sender.utils.Triple;
 import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -28,19 +37,19 @@ public class LoveboxService {
 
 	public void checkIfUserExists() {
 		// Check email user
-		if (restClientProperties.isEnabled()) {
+		if (restClientProperties.enabled()) {
 			ResponseEntity<CheckEmailResponseBody> checkEmailResponse = restClient
-				.checkEmail(new CheckEmailRequestBody(restClientProperties.getEmail()));
+				.checkEmail(new CheckEmailRequestBody(restClientProperties.email()));
 			log.debug("CheckEmail response: {}", checkEmailResponse);
 			CheckEmailResponseBody checkEmailResponseBody = checkEmailResponse.getBody();
 			if (!checkEmailResponseBody.existingUser()) {
-				throw new IllegalStateException("User %s does not exists!".formatted(restClientProperties.getEmail()));
+				throw new IllegalStateException("User %s does not exists!".formatted(restClientProperties.email()));
 			}
 		}
 	}
 
 	public void simulateDeviceQueries() {
-		if (restClientProperties.isEnabled()) {
+		if (restClientProperties.enabled()) {
 			String token = loginAndResolveToken();
 
 			// Me query
@@ -52,7 +61,7 @@ public class LoveboxService {
 			// Set device query
 			String setDeviceQuery = "mutation setDevice($deviceId: String!, $deviceParams: JSON) {\n  setDevice(deviceId: $deviceId, deviceParams: $deviceParams) {\n    _id\n    __typename\n  }\n}\n";
 			Map<String, Object> setDeviceVariables = new HashMap<>();
-			setDeviceVariables.put("deviceId", restClientProperties.getDeviceId());
+			setDeviceVariables.put("deviceId", restClientProperties.deviceId());
 			Map<String, Object> deviceParams = new HashMap<>();
 			deviceParams.put("os", "android");
 			deviceParams.put("appVersion", "5.4.9");
@@ -72,8 +81,8 @@ public class LoveboxService {
 			// setBoxSignature
 			String setBoxSignatureQuery = "mutation setBoxSignature($boxId: String, $signature: String) {\n  setBoxSignature(boxId: $boxId, signature: $signature)\n}\n";
 			Map<String, Object> setBoxSignatureVariables = new HashMap<>();
-			setBoxSignatureVariables.put("boxId", restClientProperties.getBoxId());
-			setBoxSignatureVariables.put("signature", restClientProperties.getSignature());
+			setBoxSignatureVariables.put("boxId", restClientProperties.boxId());
+			setBoxSignatureVariables.put("signature", restClientProperties.signature());
 			GraphqlRequestBody setBoxSignatureGraphqlRequestBody = new GraphqlRequestBody("setBoxSignature",
 					setBoxSignatureVariables, setBoxSignatureQuery);
 			ResponseEntity<String> setBoxSignatureResponse = restClient.graphql("Bearer " + token,
@@ -84,30 +93,28 @@ public class LoveboxService {
 
 	public String loginAndResolveToken() {
 		// Login with password and get token
-		if (restClientProperties.isEnabled()) {
-			ResponseEntity<LoginWithPasswordResponseBody> loginWithPasswordResponse = restClient
-				.loginWithPassword(new LoginWithPasswordlRequestBody(restClientProperties.getEmail(),
-						restClientProperties.getPassword()));
+		if (restClientProperties.enabled()) {
+			ResponseEntity<LoginWithPasswordResponseBody> loginWithPasswordResponse = restClient.loginWithPassword(
+					new LoginWithPasswordRequestBody(restClientProperties.email(), restClientProperties.password()));
 			log.debug("Login with password response: {}", loginWithPasswordResponse);
 			return loginWithPasswordResponse.getBody().token();
 		}
 		return null;
 	}
 
-	@SneakyThrows
-	public Tripple<String, LocalDateTime, String> sendImageMessage(String imageAsBase64) {
-		if (restClientProperties.isEnabled()) {
+	public Triple<String, LocalDateTime, String> sendImageMessage(String imageAsBase64) {
+		if (restClientProperties.enabled()) {
 			String token = loginAndResolveToken();
 
 			String sendPixNoteQuery = "mutation sendPixNote($channel: ChannelsTypes, $appVersion: String, $postcardStripePaymentId: String, $postcardAddress: JSON, $postcardSettings: JSON, $postcardScheduledDate: Date, $postcardText: String, $base64: String, $recipient: String, $date: Date, $options: JSON, $contentType: [String], $timezone: Int, $promotionCode: String) {\n  sendPixNote(channel: $channel, appVersion: $appVersion, postcardStripePaymentId: $postcardStripePaymentId, postcardAddress: $postcardAddress, postcardSettings: $postcardSettings, postcardScheduledDate: $postcardScheduledDate, postcardText: $postcardText, base64: $base64, recipient: $recipient, date: $date, contentType: $contentType, timezone: $timezone, options: $options, promotionCode: $promotionCode) {\n    _id\n    channel\n    type\n    recipient\n    postcardStripePayment\n    postcardAddress {\n      firstname\n      lastname\n      country\n      state\n      streetAddress\n      city\n      zipCode\n      __typename\n    }\n    postcardSettings {\n      color\n      fontFamily\n      fontSize\n      __typename\n    }\n    recipientRelation\n    postcardText\n    url\n    date\n    status {\n      label\n      __typename\n    }\n    statusList {\n      label\n      date\n      __typename\n    }\n    senderUser {\n      _id\n      firstName\n      email\n      __typename\n    }\n    privacyPolicy\n    addedLoveCoins\n    __typename\n  }\n}\n";
 			Map<String, Object> sendPixNoteVariables = new HashMap<>();
 			sendPixNoteVariables.put("channel", "LOVEBOX");
 			sendPixNoteVariables.put("base64", imageAsBase64);
-			sendPixNoteVariables.put("recipient", restClientProperties.getBoxId());
+			sendPixNoteVariables.put("recipient", restClientProperties.boxId());
 			sendPixNoteVariables.put("contentType", new Object[] {});
 			Map<String, Object> options = new HashMap<>();
 			options.put("framesBase64", null);
-			options.put("deviceId", restClientProperties.getDeviceId());
+			options.put("deviceId", restClientProperties.deviceId());
 			options.put("privacyPolicy", "ADMIN_AND_ME");
 			options.put("templateId", null);
 			sendPixNoteVariables.put("options", options);
@@ -132,15 +139,14 @@ public class LoveboxService {
 			DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSX");
 			LocalDateTime sentTime = LocalDateTime.parse(stati.get("date").getAsString(), formatter);
 
-			return new Tripple<>(id, sentTime, status);
+			return new Triple<>(id, sentTime, status);
 		}
 		// When not calling the Lovebox API, we need to fake the message.
-		return new Tripple<>(UUID.randomUUID().toString(), LocalDateTime.now(), "sending disabled");
+		return new Triple<>(UUID.randomUUID().toString(), LocalDateTime.now(), "sending disabled");
 	}
 
-	@SneakyThrows
 	public String receiveWaterfallOfHearts() {
-		if (restClientProperties.isEnabled()) {
+		if (restClientProperties.enabled()) {
 			String token = loginAndResolveToken();
 			// Get hearts rain
 			String getHeartsRainQuery = "query getHeartsRain {\n  getHeartsRain {\n  _id\n  sender\n  __typename  \n}\n}\n";
@@ -176,18 +182,17 @@ public class LoveboxService {
 		return null;
 	}
 
-	@SneakyThrows
 	public List<Pair<String, String>> getMessages() {
 		List<Pair<String, String>> messageStatus = new ArrayList<>();
 
-		if (restClientProperties.isEnabled()) {
+		if (restClientProperties.enabled()) {
 			String token = loginAndResolveToken();
 
 			// Get hearts rain
 			String getMessagesQuery = "query getMessages($getMessagesInput: GetMessagesInput) {\n  getMessages(getMessagesInput: $getMessagesInput) {\n    _id\n    channel\n    content\n    type\n    recipient\n    date\n    status {\n      label\n      __typename\n    }\n    statusList {\n      label\n      date\n      __typename\n    }\n    drawing {\n      base64\n      rotate\n      __typename\n    }\n    base64\n    bytes\n    premium\n    textOnly\n    textCentered\n    gifId\n    url\n    urlId\n    frames\n    senderUser {\n      _id\n      firstName\n      email\n      __typename\n    }\n    privacyPolicy\n    postcardText\n    postcardAddress {\n      firstname\n      lastname\n      streetAddress\n      zipCode\n      city\n      country\n      state\n      __typename\n    }\n    postcardSettings {\n      color\n      fontFamily\n      fontSize\n      __typename\n    }\n    postcardScheduledDate\n    estimatedArrivalDate\n    __typename\n  }\n}\n";
 
 			Map<String, Object> getMessagesInput = new HashMap<>();
-			getMessagesInput.put("recipient", restClientProperties.getBoxId());
+			getMessagesInput.put("recipient", restClientProperties.boxId());
 			getMessagesInput.put("limit", 10);
 			getMessagesInput.put("skip", 0);
 
@@ -210,7 +215,7 @@ public class LoveboxService {
 					JsonObject message = m.getAsJsonObject();
 					String id = message.get("_id").getAsString();
 					String status = message.get("status").getAsJsonObject().get("label").getAsString();
-					messageStatus.add(new Pair(id, status));
+					messageStatus.add(new Pair<>(id, status));
 				});
 			}
 		}
