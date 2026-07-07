@@ -23,10 +23,20 @@
     <!-- Project properties for dependency management -->
     <emoji4j.version>6.0</emoji4j.version>
     <imgscalr.version>4.2</imgscalr.version>
-    <jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version>
+    <jacoco.version>0.8.15</jacoco.version>
     <java.version>25</java.version>
     <spring-javaformat-maven-plugin.version>0.0.47</spring-javaformat-maven-plugin.version>
     <telegrambots.version>10.0.0</telegrambots.version>
+
+    <!-- Code Quality & POM tooling -->
+    <sortpom-maven-plugin.version>4.0.0</sortpom-maven-plugin.version>
+
+    <!-- OpenRewrite Plugins -->
+    <rewrite-logging-frameworks.version>3.29.2</rewrite-logging-frameworks.version>
+    <rewrite-maven-plugin.version>6.43.0</rewrite-maven-plugin.version>
+    <rewrite-spring.version>6.34.0</rewrite-spring.version>
+    <rewrite-static-analysis.version>2.38.0</rewrite-static-analysis.version>
+    <rewrite-testing-frameworks.version>3.41.0</rewrite-testing-frameworks.version>
   </properties>
 
   <dependencies>
@@ -165,7 +175,7 @@
       <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
-        <version>${jacoco-maven-plugin.version}</version>
+        <version>${jacoco.version}</version>
         <executions>
           <execution>
             <id>prepare-agent</id>
@@ -179,6 +189,63 @@
               <goal>report</goal>
             </goals>
             <phase>verify</phase>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- Code Modernization and Refactoring -->
+      <plugin>
+        <groupId>org.openrewrite.maven</groupId>
+        <artifactId>rewrite-maven-plugin</artifactId>
+        <version>${rewrite-maven-plugin.version}</version>
+        <configuration>
+          <activeRecipes>
+            <recipe>org.openrewrite.staticanalysis.CodeCleanup</recipe>
+            <recipe>org.openrewrite.java.logging.slf4j.Slf4jBestPractices</recipe>
+            <recipe>org.openrewrite.java.testing.junit5.JUnit5BestPractices</recipe>
+            <recipe>org.openrewrite.java.spring.boot4.UpgradeSpringBoot_4_0</recipe>
+          </activeRecipes>
+        </configuration>
+        <dependencies>
+          <dependency>
+            <groupId>org.openrewrite.recipe</groupId>
+            <artifactId>rewrite-spring</artifactId>
+            <version>${rewrite-spring.version}</version>
+          </dependency>
+          <dependency>
+            <groupId>org.openrewrite.recipe</groupId>
+            <artifactId>rewrite-static-analysis</artifactId>
+            <version>${rewrite-static-analysis.version}</version>
+          </dependency>
+          <dependency>
+            <groupId>org.openrewrite.recipe</groupId>
+            <artifactId>rewrite-logging-frameworks</artifactId>
+            <version>${rewrite-logging-frameworks.version}</version>
+          </dependency>
+          <dependency>
+            <groupId>org.openrewrite.recipe</groupId>
+            <artifactId>rewrite-testing-frameworks</artifactId>
+            <version>${rewrite-testing-frameworks.version}</version>
+          </dependency>
+        </dependencies>
+      </plugin>
+      <!-- POM Organization -->
+      <plugin>
+        <groupId>com.github.ekryd.sortpom</groupId>
+        <artifactId>sortpom-maven-plugin</artifactId>
+        <version>${sortpom-maven-plugin.version}</version>
+        <configuration>
+          <predefinedSortOrder>custom_1</predefinedSortOrder>
+          <lineSeparator>\n</lineSeparator>
+          <encoding>${project.build.sourceEncoding}</encoding>
+          <sortProperties>false</sortProperties>
+          <keepBlankLines>true</keepBlankLines>
+          <sortDependencies>scope</sortDependencies>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>sort</goal>
+            </goals>
           </execution>
         </executions>
       </plugin>
@@ -225,6 +292,8 @@
             <artifactId>native-maven-plugin</artifactId>
             <configuration>
               <buildArgs>
+                <!-- Target the NAS CPU baseline (Intel J3455 supports x86-64-v2). -->
+                <buildArg>-march=x86-64-v2</buildArg>
                 <!-- Enable experimental flags used below -->
                 <buildArg>-H:+UnlockExperimentalVMOptions</buildArg>
                 <!-- Include all charsets so text rendering works at runtime -->
@@ -242,8 +311,8 @@
                 <env>
                   <!-- Force a native image build inside the buildpack -->
                   <BP_NATIVE_IMAGE>true</BP_NATIVE_IMAGE>
-                  <!-- Pass the same AWT/charset arguments to the buildpack compiler -->
-                  <BP_NATIVE_IMAGE_BUILD_ARGUMENTS>-H:+UnlockExperimentalVMOptions
+                  <!-- Emit x86-64-v2 instructions (NAS Intel J3455) plus the AWT/charset arguments. -->
+                  <BP_NATIVE_IMAGE_BUILD_ARGUMENTS>-march=x86-64-v2 -H:+UnlockExperimentalVMOptions
                     -H:+AddAllCharsets</BP_NATIVE_IMAGE_BUILD_ARGUMENTS>
                 </env>
               </image>

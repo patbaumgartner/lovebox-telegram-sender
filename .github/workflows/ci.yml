@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+# Cancel in-progress runs for the same branch/PR when a new commit is pushed.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+env:
+  JAVA_VERSION: "25"
+  MAVEN_OPTS: "-Xmx1024m -XX:+UseG1GC"
+
+jobs:
+  # ── Java / Spring Boot ──────────────────────────────────────────────────────
+  java:
+    name: Java – Build & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v5
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+
+      - name: Check code formatting
+        run: ./mvnw spring-javaformat:validate -ntp
+
+      - name: Build, test & verify
+        run: ./mvnw clean verify -ntp -Dmaven.test.failure.ignore=true
+        env:
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
+
+      - name: Publish test results
+        uses: dorny/test-reporter@v3
+        if: always()
+        with:
+          name: "Test Results – Java ${{ env.JAVA_VERSION }}"
+          path: "target/surefire-reports/*.xml,target/failsafe-reports/TEST-*.xml"
+          reporter: java-junit
+          fail-on-error: true

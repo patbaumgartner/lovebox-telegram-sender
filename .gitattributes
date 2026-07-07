@@ -1,2 +1,37 @@
-/mvnw text eol=lf
-*.cmd text eol=crlf
+##############################################################################
+# .gitattributes — normalise line endings across platforms
+# Java sources and the Maven wrapper script use LF; Windows .cmd files use CRLF.
+##############################################################################
+
+# ── Default: normalise all text files to LF ──────────────────────────────────
+* text=auto eol=lf
+
+# ── Source & config ──────────────────────────────────────────────────────────
+*.java        text eol=lf
+*.xml         text eol=lf
+*.yml         text eol=lf
+*.yaml        text eol=lf
+*.properties  text eol=lf
+*.json        text eol=lf
+*.sql         text eol=lf
+*.sh          text eol=lf
+*.js          text eol=lf
+
+# ── Docker ───────────────────────────────────────────────────────────────────
+Dockerfile    text eol=lf
+*.dockerfile  text eol=lf
+
+# ── Maven wrapper ─────────────────────────────────────────────────────────────
+# mvnw must use LF even on Windows, mvnw.cmd must use CRLF
+mvnw          text eol=lf
+*.cmd         text eol=crlf
+
+# ── Documentation ─────────────────────────────────────────────────────────────
+*.md          text eol=lf
+
+# ── Binary files — no line-ending conversion ─────────────────────────────────
+*.jar         binary
+*.png         binary
+*.jpg         binary
+*.gif         binary
+*.ico         binary

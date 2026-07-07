@@ -1,0 +1,13 @@
+name: "Lovebox Telegram Sender CodeQL Config"
+
+paths:
+  - src/main/java
+  - src/test/java
+
+paths-ignore:
+  - target
+  - build
+  - "**/*.md"
+
+queries:
+  - uses: security-and-quality
