@@ -131,6 +131,11 @@ public class LoveboxBot implements SpringLongPollingBot, LongPollingSingleThread
 				log.error("Exception occurred: {}", e.getMessage(), e);
 			}
 
+			if (imagePair == null) {
+				log.error("No image could be created; skipping message for chat(s) {}", chatIds);
+				return;
+			}
+
 			Triple<String, LocalDateTime, String> statusTripple = loveboxService.sendImageMessage(imagePair.left());
 			loveboxMessageStore.put(statusTripple.left(), statusTripple.right());
 
@@ -185,8 +190,8 @@ public class LoveboxBot implements SpringLongPollingBot, LongPollingSingleThread
 		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z");
 		String formattedDateTime = ZonedDateTime.of(statusTripple.middle(), ZoneId.of("Europe/London"))
 			.format(formatter);
-		String caption = "Message: \"%s\" \nStatus: [%s].\nExecuted: %s".formatted(
-				textMessage != null ? textMessage.replaceAll("\n", " ") : "", statusTripple.right(), formattedDateTime);
+		String caption = "Message: \"%s\" \nStatus: [%s].\nExecuted: %s".formatted(textMessage.replaceAll("\n", " "),
+				statusTripple.right(), formattedDateTime);
 		message.setCaption(caption);
 
 		Message sentMessage = null;
