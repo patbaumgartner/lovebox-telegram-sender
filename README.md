@@ -1,4 +1,7 @@
-![maven-docker-publish](https://github.com/patbaumgartner/lovebox-telegram-sender/actions/workflows/maven-docker-publish.yml/badge.svg)
+[![CI](https://github.com/patbaumgartner/lovebox-telegram-sender/actions/workflows/ci.yml/badge.svg)](https://github.com/patbaumgartner/lovebox-telegram-sender/actions/workflows/ci.yml)
+[![Release](https://github.com/patbaumgartner/lovebox-telegram-sender/actions/workflows/release.yml/badge.svg)](https://github.com/patbaumgartner/lovebox-telegram-sender/actions/workflows/release.yml)
+[![CodeQL](https://github.com/patbaumgartner/lovebox-telegram-sender/actions/workflows/codeql.yml/badge.svg)](https://github.com/patbaumgartner/lovebox-telegram-sender/actions/workflows/codeql.yml)
+[![Dependency Review](https://github.com/patbaumgartner/lovebox-telegram-sender/actions/workflows/dependency-review.yml/badge.svg)](https://github.com/patbaumgartner/lovebox-telegram-sender/actions/workflows/dependency-review.yml)
 
 # Lovebox Telegram Sender
 

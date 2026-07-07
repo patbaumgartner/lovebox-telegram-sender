@@ -38,3 +38,5 @@ build/
 
 ### Docker ###
 .env
+# sortpom backup
+pom.xml.bak
