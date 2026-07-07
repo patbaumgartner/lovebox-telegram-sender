@@ -178,27 +178,59 @@ BOT_TOKEN="4072971853:ABEojZ42uNA6YYn_c7DF8RH0UOorqXuveSQ"
 
 ## Building the Docker Container
 
+The image name, custom run image, pull policy, and buildpack environment are baked
+into the `spring-boot-maven-plugin` configuration in `pom.xml`, so the commands
+below don't need `-Dspring-boot.build-image.*` overrides. Build the custom run
+image first (see [Fixing Known Issues with Missing Fonts](#fixing-known-issues-with-missing-fonts)).
+
 ### Building the Docker Container Locally
 
 ```bash
-mvn spring-boot:build-image \
-  --batch-mode \
-  --no-transfer-progress \
-  -Dspring-boot.build-image.imageName='patbaumgartner/${project.artifactId}:${project.version}'
+mvn spring-boot:build-image --batch-mode --no-transfer-progress
 ```
 
 ### Building the Docker Container and Pushing to Docker Hub
 
+Build the image locally, then log in and push it with Docker:
+
 ```bash
-mvn spring-boot:build-image \
- --batch-mode \
- --no-transfer-progress \
- -Dspring-boot.build-image.imageName='patbaumgartner/${project.artifactId}:${project.version}' \
- -Dspring-boot.build-image.publish=true \
- -DCI_REGISTRY=https://index.docker.io/v1/ \
- -DCI_REGISTRY_USER=${DCI_REGISTRY_USER} \
- -DCI_REGISTRY_PASSWORD=${DCI_REGISTRY_PASSWORD}
+mvn spring-boot:build-image --batch-mode --no-transfer-progress
+
+docker login
+docker push patbaumgartner/lovebox-telegram-sender:0.1.0-SNAPSHOT
 ```
+
+### Building a GraalVM Native Image Container
+
+The project ships a `native` Maven profile (extending the one inherited from
+`spring-boot-starter-parent`) with the extra AWT/charset build arguments the
+application needs, since it renders images via `java.awt`.
+
+Build a native-image container with buildpacks (the `native` profile forces
+`BP_NATIVE_IMAGE=true`; the image name and run image come from `pom.xml`):
+
+```bash
+mvn spring-boot:build-image --batch-mode --no-transfer-progress -Pnative
+```
+
+Because the application relies on AWT and fonts, the native run image must
+include font libraries (`fontconfig`, `libfreetype`) and at least one font.
+The `<runImage>` in `pom.xml` points to the custom
+`patbaumgartner/lovebox-telegram-sender-run:latest` image built from
+`Dockerfile.base-cnb` (see
+[Fixing Known Issues with Missing Fonts](#fixing-known-issues-with-missing-fonts)),
+otherwise the native binary will fail with a `NullPointerException` in
+`sun.awt.FontConfiguration`.
+
+To build only a native binary (no container), run:
+
+```bash
+mvn -Pnative native:compile
+```
+
+> Note: native compilation requires a GraalVM/Liberica NIK toolchain (for local
+> builds) or Docker (for the buildpack path), and takes noticeably longer than a
+> regular JVM build.
 
 ### Running the Application from Maven
 
@@ -214,22 +246,16 @@ Since the application uses fonts, we need to make sure that fonts are part of th
 
 After further research, it seems that the only way to add fonts to the build pack base image is to create an OCI run image by extending the base image. See the `Dockerfile.base-cnb` file and what a patch with the additional font packages might look like.
 
-Build the `runImage` locally with the following command.
+Build the run image locally with the following command.
 
 ```bash
-docker build --no-cache -f Dockerfile.base-cnb -t patbaumgartner/run:base-cnb .
+docker build --no-cache -f Dockerfile.base-cnb -t patbaumgartner/lovebox-telegram-sender-run:latest .
 ```
 
-Since we are running the pull policy with `IF_NOT_PRESENT` in the `mvn spring-boot:build-image` command, we need to make sure that the latest version of the builder is available locally. Finally, pass the `runImage` to the `spring-boot-maven-plugin` to create the docker container containing the fonts.
-
-```bash
-mvn spring-boot:build-image \
- --batch-mode \
- --no-transfer-progress \
- -Dspring-boot.build-image.imageName='patbaumgartner/${project.artifactId}:${project.version}' \
- -Dspring-boot.build-image.runImage=patbaumgartner/builder-jammy-base:latest \
- -Dspring-boot.build-image.pullPolicy=IF_NOT_PRESENT
-```
+The `spring-boot-maven-plugin` in `pom.xml` already references this run image via
+`<runImage>` and uses `<pullPolicy>IF_NOT_PRESENT</pullPolicy>`, so once the image
+exists locally a plain `mvn spring-boot:build-image` picks it up to create the
+container containing the fonts.
 
 ## Credits
 

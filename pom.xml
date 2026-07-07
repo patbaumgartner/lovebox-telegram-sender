@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
@@ -18,10 +20,6 @@
   <description>Lovebox Telegram Sender</description>
 
   <properties>
-    <!-- Providing properties for CI build -->
-    <CI_REGISTRY></CI_REGISTRY>
-    <CI_REGISTRY_PASSWORD></CI_REGISTRY_PASSWORD>
-    <CI_REGISTRY_USER></CI_REGISTRY_USER>
     <!-- Project properties for dependency management -->
     <emoji4j.version>6.0</emoji4j.version>
     <imgscalr.version>4.2</imgscalr.version>
@@ -111,19 +109,19 @@
               <artifactId>lombok</artifactId>
             </exclude>
           </excludes>
-          <docker>
-            <publishRegistry>
-              <username>${CI_REGISTRY_USER}</username>
-              <password>${CI_REGISTRY_PASSWORD}</password>
-              <url>${CI_REGISTRY}</url>
-            </publishRegistry>
-          </docker>
           <image>
+            <name>docker.io/patbaumgartner/${project.artifactId}:${project.version}</name>
             <!-- Builder needs to match run-image from Dockerfile.base-cnb -->
             <builder>paketobuildpacks/builder-noble-java-tiny:latest</builder>
+            <!-- Custom run image adds fonts required by java.awt (see Dockerfile.base-cnb) -->
+            <runImage>patbaumgartner/lovebox-telegram-sender-run:latest</runImage>
+            <pullPolicy>IF_NOT_PRESENT</pullPolicy>
             <env>
               <!-- BP_SPRING_AOT_ENABLED>false</BP_SPRING_AOT_ENABLED -->
+              <BP_JVM_VERSION>${java.version}</BP_JVM_VERSION>
               <BP_JVM_AOTCACHE_ENABLED>false</BP_JVM_AOTCACHE_ENABLED>
+              <BPE_DELIM_JAVA_TOOL_OPTIONS xml:space="preserve"> </BPE_DELIM_JAVA_TOOL_OPTIONS>
+              <BPE_APPEND_JAVA_TOOL_OPTIONS>-Dstdout.encoding=UTF-8</BPE_APPEND_JAVA_TOOL_OPTIONS>
               <TRAINING_RUN_JAVA_TOOL_OPTIONS>-Dlovebox.enabled=false -Dtelegrambots.enabled=false</TRAINING_RUN_JAVA_TOOL_OPTIONS>
             </env>
           </image>
@@ -207,4 +205,62 @@
       <url>https://repo.spring.io/milestone</url>
     </pluginRepository>
   </pluginRepositories>
+
+  <profiles>
+    <!--
+      GraalVM native image support. The base `native` profile is inherited from
+      spring-boot-starter-parent; this override adds the AWT/font related build
+      arguments the application needs (it relies on java.awt for image rendering).
+
+      Local native binary:      mvn -Pnative native:compile
+      Native container image:   mvn -Pnative spring-boot:build-image
+                                (buildpack sets BP_NATIVE_IMAGE=true automatically)
+    -->
+    <profile>
+      <id>native</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.graalvm.buildtools</groupId>
+            <artifactId>native-maven-plugin</artifactId>
+            <configuration>
+              <buildArgs>
+                <!-- Enable experimental flags used below -->
+                <buildArg>-H:+UnlockExperimentalVMOptions</buildArg>
+                <!-- Include all charsets so text rendering works at runtime -->
+                <buildArg>-H:+AddAllCharsets</buildArg>
+                <!-- The app renders images without a display -->
+                <buildArg>-J-Djava.awt.headless=true</buildArg>
+              </buildArgs>
+            </configuration>
+          </plugin>
+          <plugin>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-maven-plugin</artifactId>
+            <configuration>
+              <image>
+                <env>
+                  <!-- Force a native image build inside the buildpack -->
+                  <BP_NATIVE_IMAGE>true</BP_NATIVE_IMAGE>
+                  <!-- Pass the same AWT/charset arguments to the buildpack compiler -->
+                  <BP_NATIVE_IMAGE_BUILD_ARGUMENTS>-H:+UnlockExperimentalVMOptions
+                    -H:+AddAllCharsets</BP_NATIVE_IMAGE_BUILD_ARGUMENTS>
+                </env>
+              </image>
+            </configuration>
+            <executions>
+              <!-- Spring evaluates conditions at AOT (build) time; disable the bot
+                   and Lovebox login so the process-aot run does not connect anywhere. -->
+              <execution>
+                <id>process-aot</id>
+                <configuration>
+                  <jvmArguments>-Dlovebox.enabled=false -Dtelegrambots.enabled=false</jvmArguments>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>
