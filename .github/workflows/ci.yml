@@ -58,16 +58,19 @@ jobs:
           reporter: java-junit
           fail-on-error: true
 
-  # ── Docker – Publish latest native image (push to main only) ────────────────
+  # ── Docker: publish native image as snapshot + latest (main pushes only) ────
+  # Runs only on direct pushes to main / manual dispatch (never on PRs or forks,
+  # where the Docker Hub secrets are unavailable). Publishes the GraalVM native
+  # application image and its run image, each tagged with the current project
+  # version (e.g. 0.1.0-SNAPSHOT) and :latest.
   docker:
-    name: Docker – Publish latest
+    name: Docker – Publish snapshot & latest
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     needs: [java]
-    # Publish only on direct pushes to main (or manual dispatch), never on PRs.
-    if: >-
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      github.event_name == 'workflow_dispatch'
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+    env:
+      MAVEN_OPTS: "-Xmx2048m -XX:+UseG1GC"
 
     steps:
       - name: Checkout
@@ -91,30 +94,30 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Custom run image adds fonts required by java.awt image rendering; the
-      # buildpack pulls it via runImage/pullPolicy=IF_NOT_PRESENT from pom.xml.
-      - name: Build & push run image (latest)
+      - name: Resolve project version
+        id: version
+        run: echo "version=$(./mvnw -q -ntp help:evaluate -Dexpression=project.version -DforceStdout)" >> "$GITHUB_OUTPUT"
+
+      # Run image must be pushed before the native build: the buildpack pulls it
+      # via runImage/pullPolicy=IF_NOT_PRESENT configured in pom.xml.
+      - name: Build & push run image
         uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile.base-cnb
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/lovebox-telegram-sender-run:latest
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/lovebox-telegram-sender-run:${{ steps.version.outputs.version }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/lovebox-telegram-sender-run:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # GraalVM native image via the Paketo native buildpack (-Pnative). The image
-      # name/tag come from pom.xml <image><name> (which takes precedence over the
-      # imageName CLI property), so build locally then retag & push :latest using
-      # the docker login credentials.
-      - name: Build & publish native image (latest)
+      # -Pnative + BP_NATIVE_IMAGE=true compile a GraalVM native image (x86-64-v2).
+      - name: Build & publish native image (snapshot & latest)
         run: |
-          ./mvnw -B -ntp -Pnative spring-boot:build-image -DskipTests
-          VERSION="$(./mvnw -q -ntp help:evaluate -Dexpression=project.version -DforceStdout)"
-          docker tag \
-            patbaumgartner/lovebox-telegram-sender:"$VERSION" \
-            ${{ secrets.DOCKERHUB_USERNAME }}/lovebox-telegram-sender:latest
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/lovebox-telegram-sender:latest
-        env:
-          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
-
+          ./mvnw -B -ntp -Pnative spring-boot:build-image -DskipTests \
+            -Dspring-boot.build-image.publish=true \
+            -Dspring-boot.build-image.imageName=docker.io/${{ secrets.DOCKERHUB_USERNAME }}/lovebox-telegram-sender:${{ steps.version.outputs.version }}
+          docker buildx imagetools create \
+            --tag docker.io/${{ secrets.DOCKERHUB_USERNAME }}/lovebox-telegram-sender:latest \
+            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/lovebox-telegram-sender:${{ steps.version.outputs.version }}
