@@ -96,7 +96,7 @@ public class LoveboxService {
 		if (restClientProperties.enabled()) {
 			ResponseEntity<LoginWithPasswordResponseBody> loginWithPasswordResponse = restClient.loginWithPassword(
 					new LoginWithPasswordRequestBody(restClientProperties.email(), restClientProperties.password()));
-			log.debug("Login with password response: {}", loginWithPasswordResponse);
+			log.debug("Login with password response status: {}", loginWithPasswordResponse.getStatusCode());
 			return loginWithPasswordResponse.getBody().token();
 		}
 		return null;
