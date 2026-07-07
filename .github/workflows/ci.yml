@@ -103,13 +103,18 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # GraalVM native image via the Paketo native buildpack (-Pnative), published
-      # straight to Docker Hub as :latest using the docker login credentials.
+      # GraalVM native image via the Paketo native buildpack (-Pnative). The image
+      # name/tag come from pom.xml <image><name> (which takes precedence over the
+      # imageName CLI property), so build locally then retag & push :latest using
+      # the docker login credentials.
       - name: Build & publish native image (latest)
         run: |
-          ./mvnw -B -ntp -Pnative spring-boot:build-image -DskipTests \
-            -Dspring-boot.build-image.publish=true \
-            -Dspring-boot.build-image.imageName=docker.io/${{ secrets.DOCKERHUB_USERNAME }}/lovebox-telegram-sender:latest
+          ./mvnw -B -ntp -Pnative spring-boot:build-image -DskipTests
+          VERSION="$(./mvnw -q -ntp help:evaluate -Dexpression=project.version -DforceStdout)"
+          docker tag \
+            patbaumgartner/lovebox-telegram-sender:"$VERSION" \
+            ${{ secrets.DOCKERHUB_USERNAME }}/lovebox-telegram-sender:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/lovebox-telegram-sender:latest
         env:
           MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
 
