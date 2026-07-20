@@ -2,13 +2,16 @@ package com.patbaumgartner.lovebox.telegram.sender.config;
 
 import java.util.List;
 
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.ApplicationListener;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+
 import org.telegram.telegrambots.longpolling.TelegramBotsLongPollingApplication;
 import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot;
 import org.telegram.telegrambots.longpolling.starter.TelegramBotInitializer;
-
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 /**
  * Explicit replacement for the telegrambots starter auto-configuration
@@ -26,7 +29,6 @@ import org.springframework.context.annotation.Configuration;
  * definitions back off on both JVM and native.
  */
 @Configuration(proxyBeanMethods = false)
-@ConditionalOnProperty(prefix = "telegrambots", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class TelegramBotsConfiguration {
 
 	/**
@@ -39,17 +41,39 @@ public class TelegramBotsConfiguration {
 	}
 
 	/**
-	 * Registers all {@link SpringLongPollingBot} beans with the long-polling runtime on
-	 * startup (same contract as the starter's initializer, but with the bot list injected
-	 * directly so it works in the native image).
+	 * Prevents the starter's initializer from registering bots during AOT training.
+	 * Registration is deferred until the application is ready.
 	 * @param telegramBotsApplication the long-polling runtime
 	 * @param bots all long-polling bot beans in the context
-	 * @return the initializer that registers the bots
+	 * @return an initializer that suppresses the starter's eager registration
 	 */
 	@Bean
 	public TelegramBotInitializer telegramBotInitializer(TelegramBotsLongPollingApplication telegramBotsApplication,
 			List<SpringLongPollingBot> bots) {
-		return new TelegramBotInitializer(telegramBotsApplication, bots);
+		return new TelegramBotInitializer(telegramBotsApplication, bots) {
+			@Override
+			public void afterPropertiesSet() {
+			}
+		};
+	}
+
+	@Bean
+	public ApplicationListener<ApplicationReadyEvent> telegramBotsRegistrar(
+			TelegramBotsLongPollingApplication telegramBotsApplication, List<SpringLongPollingBot> bots,
+			Environment environment) {
+		return event -> {
+			if (!environment.getProperty("lovebox.enabled", Boolean.class, true)) {
+				return;
+			}
+			for (SpringLongPollingBot bot : bots) {
+				try {
+					telegramBotsApplication.registerBot(bot.getBotToken(), bot.getUpdatesConsumer());
+				}
+				catch (TelegramApiException e) {
+					throw new IllegalStateException("Could not start Telegram long-polling", e);
+				}
+			}
+		};
 	}
 
 }
