@@ -11,16 +11,12 @@ import org.springframework.core.type.filter.TypeFilter;
 import org.springframework.util.ClassUtils;
 
 /**
- * Registers GraalVM native-image reflection hints for the Telegram Bot API
- * types.
+ * Registers GraalVM native-image reflection hints for the Telegram Bot API types.
  * <p>
- * {@code org.telegram:telegrambots-*:10.0.0} does not ship GraalVM reachability
- * metadata.
+ * {@code org.telegram:telegrambots-*:10.0.0} does not ship GraalVM reachability metadata.
  * The Bot API request and response objects under
- * {@code org.telegram.telegrambots.meta.api} are (de)serialised with Jackson,
- * which needs
- * reflective access to their constructors, fields and accessors at runtime.
- * Without these
+ * {@code org.telegram.telegrambots.meta.api} are (de)serialised with Jackson, which needs
+ * reflective access to their constructors, fields and accessors at runtime. Without these
  * hints the native image starts but cannot send or receive messages.
  */
 public class TelegramBotsRuntimeHints implements RuntimeHintsRegistrar {
@@ -46,7 +42,8 @@ public class TelegramBotsRuntimeHints implements RuntimeHintsRegistrar {
 				Class<?> type = ClassUtils.forName(className, classLoader);
 				hints.reflection().registerType(type, MemberCategory.values());
 				count++;
-			} catch (Throwable ex) {
+			}
+			catch (Throwable ex) {
 				// Skip classes that cannot be loaded; they are not needed at runtime.
 				log.trace("Skipping Telegram Bot API type for native hints: {} ({})", className, ex.getMessage());
 			}
