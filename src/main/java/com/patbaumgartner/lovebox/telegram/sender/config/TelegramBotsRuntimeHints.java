@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.aot.hint.MemberCategory;
 import org.springframework.aot.hint.RuntimeHints;
 import org.springframework.aot.hint.RuntimeHintsRegistrar;
+import org.springframework.aot.hint.TypeReference;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
 import org.springframework.core.type.filter.TypeFilter;
 import org.springframework.util.ClassUtils;
@@ -23,6 +24,8 @@ public class TelegramBotsRuntimeHints implements RuntimeHintsRegistrar {
 	private static final Logger log = LoggerFactory.getLogger(TelegramBotsRuntimeHints.class);
 
 	private static final String TELEGRAM_API_BASE_PACKAGE = "org.telegram.telegrambots.meta.api";
+
+	private static final String JPEG_IMAGE_READER = "com.sun.imageio.plugins.jpeg.JPEGImageReader";
 
 	@Override
 	public void registerHints(RuntimeHints hints, ClassLoader classLoader) {
@@ -45,6 +48,7 @@ public class TelegramBotsRuntimeHints implements RuntimeHintsRegistrar {
 				log.trace("Skipping Telegram Bot API type for native hints: {} ({})", className, ex.getMessage());
 			}
 		}
+		hints.jni().registerType(TypeReference.of(JPEG_IMAGE_READER), MemberCategory.INVOKE_DECLARED_METHODS);
 		log.debug("Registered native reflection hints for {} Telegram Bot API types", count);
 	}
 
