@@ -1,4 +1,4 @@
-package com.patbaumgartner.lovebox.telegram.sender.config;
+package com.patbaumgartner.lovebox.telegram.sender.telegram;
 
 import java.util.List;
 
