@@ -90,13 +90,27 @@ jobs:
         run: ./mvnw versions:set -DnewVersion=${{ steps.version.outputs.version }} -DgenerateBackupPoms=false -ntp
 
       # ── Native application image (GraalVM via Paketo buildpack) ────────────────
-      - name: Build & publish native image
+      # Built locally first so the render smoke test gates publishing: JPEG JNI
+      # decoding and HarfBuzz FFM emoji shaping only fail at runtime in the native
+      # image, never at build time or in unit tests.
+      - name: Build native image
         run: |
           ./mvnw -B -ntp -Pnative spring-boot:build-image -DskipTests \
-            -Dspring-boot.build-image.publish=true \
             -Dspring-boot.build-image.imageName=docker.io/${{ secrets.DOCKERHUB_USERNAME }}/lovebox-telegram-sender:${{ steps.version.outputs.version }}
         env:
           MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
+
+      - name: Smoke test native image (render pipeline incl. emoji)
+        run: |
+          docker run --rm \
+            -e LOVEBOX_ENABLED=false \
+            -e RENDER_SMOKE_ENABLED=true \
+            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/lovebox-telegram-sender:${{ steps.version.outputs.version }} \
+            | tee smoke.log
+          grep -q "Render smoke test passed" smoke.log
+
+      - name: Publish native image
+        run: docker push docker.io/${{ secrets.DOCKERHUB_USERNAME }}/lovebox-telegram-sender:${{ steps.version.outputs.version }}
 
       - name: Tag native image as latest
         if: steps.version.outputs.prerelease == 'false'
