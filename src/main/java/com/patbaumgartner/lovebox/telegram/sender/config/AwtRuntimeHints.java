@@ -49,6 +49,10 @@ public class AwtRuntimeHints implements RuntimeHintsRegistrar {
 			"java.awt.Color", "java.awt.AlphaComposite", "java.awt.geom.AffineTransform", "java.awt.geom.GeneralPath",
 			"java.awt.geom.Path2D", "java.awt.geom.Path2D$Float", "java.awt.geom.Point2D$Float",
 			"java.awt.geom.Rectangle2D$Float",
+			// Font/glyph rasterization (libfontmanager/freetype JNI)
+			"sun.font.Font2D", "sun.font.FontStrike", "sun.font.PhysicalStrike", "sun.font.FreetypeFontScaler",
+			"sun.font.GlyphList", "sun.font.StrikeMetrics", "sun.font.TrueTypeFont", "sun.font.Type1Font",
+			"sun.font.CharToGlyphMapper",
 			// Java2D rendering internals (drawImage/drawString render loops)
 			"sun.awt.SunHints", "sun.java2d.Disposer", "sun.java2d.InvalidPipeException", "sun.java2d.NullSurfaceData",
 			"sun.java2d.SunGraphics2D", "sun.java2d.SurfaceData", "sun.java2d.pipe.Region",
