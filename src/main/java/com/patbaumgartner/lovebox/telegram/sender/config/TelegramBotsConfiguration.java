@@ -2,8 +2,6 @@ package com.patbaumgartner.lovebox.telegram.sender.config;
 
 import java.util.List;
 
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
@@ -11,7 +9,6 @@ import org.springframework.core.env.Environment;
 import org.telegram.telegrambots.longpolling.TelegramBotsLongPollingApplication;
 import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot;
 import org.telegram.telegrambots.longpolling.starter.TelegramBotInitializer;
-import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 /**
  * Explicit replacement for the telegrambots starter auto-configuration
@@ -27,6 +24,11 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
  * Defining the same beans here with direct {@code List<SpringLongPollingBot>} injection
  * (fully supported by AOT) makes the starter's {@code @ConditionalOnMissingBean}
  * definitions back off on both JVM and native.
+ * <p>
+ * Registration itself is performed by {@link TelegramBotsRegistrar}, a named
+ * {@code ApplicationRunner}. An earlier version used a lambda
+ * {@code ApplicationListener<ApplicationReadyEvent>} here, which is never invoked in the
+ * native image and left the bot unregistered without any error.
  */
 @Configuration(proxyBeanMethods = false)
 public class TelegramBotsConfiguration {
@@ -58,22 +60,10 @@ public class TelegramBotsConfiguration {
 	}
 
 	@Bean
-	public ApplicationListener<ApplicationReadyEvent> telegramBotsRegistrar(
-			TelegramBotsLongPollingApplication telegramBotsApplication, List<SpringLongPollingBot> bots,
-			Environment environment) {
-		return event -> {
-			if (!environment.getProperty("lovebox.enabled", Boolean.class, true)) {
-				return;
-			}
-			for (SpringLongPollingBot bot : bots) {
-				try {
-					telegramBotsApplication.registerBot(bot.getBotToken(), bot.getUpdatesConsumer());
-				}
-				catch (TelegramApiException e) {
-					throw new IllegalStateException("Could not start Telegram long-polling", e);
-				}
-			}
-		};
+	public TelegramBotsRegistrar telegramBotsRegistrar(TelegramBotsLongPollingApplication telegramBotsApplication,
+			List<SpringLongPollingBot> bots, Environment environment) {
+		return new TelegramBotsRegistrar(telegramBotsApplication, bots,
+				environment.getProperty("lovebox.enabled", Boolean.class, true));
 	}
 
 }
