@@ -1,10 +1,13 @@
-package com.patbaumgartner.lovebox.telegram.sender.rest.clients;
+package com.patbaumgartner.lovebox.telegram.sender.lovebox;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.service.annotation.PostExchange;
 
+/**
+ * Declarative HTTP interface for the (undocumented) Lovebox mobile-app API.
+ */
 public interface LoveboxRestClient {
 
 	@PostExchange("/v1/auth/checkEmail")

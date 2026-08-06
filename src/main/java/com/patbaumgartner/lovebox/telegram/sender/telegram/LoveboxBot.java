@@ -1,20 +1,32 @@
 package com.patbaumgartner.lovebox.telegram.sender.telegram;
 
-import com.patbaumgartner.lovebox.telegram.sender.services.ImageService;
-import com.patbaumgartner.lovebox.telegram.sender.services.LoveboxService;
-import com.patbaumgartner.lovebox.telegram.sender.utils.Pair;
-import com.patbaumgartner.lovebox.telegram.sender.utils.Triple;
-import jakarta.annotation.PostConstruct;
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Collectors;
+
+import com.patbaumgartner.lovebox.telegram.sender.image.ImageService;
+import com.patbaumgartner.lovebox.telegram.sender.image.LoveboxImage;
+import com.patbaumgartner.lovebox.telegram.sender.lovebox.LoveboxService;
+import com.patbaumgartner.lovebox.telegram.sender.lovebox.MessageStatus;
+import com.patbaumgartner.lovebox.telegram.sender.lovebox.SendResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
+
 import org.telegram.telegrambots.longpolling.BotSession;
 import org.telegram.telegrambots.longpolling.interfaces.LongPollingUpdateConsumer;
 import org.telegram.telegrambots.longpolling.starter.AfterBotRegistration;
 import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot;
-import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
+import org.telegram.telegrambots.longpolling.util.DefaultLongPollingUpdateConsumer;
 import org.telegram.telegrambots.meta.api.methods.GetFile;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
@@ -26,23 +38,25 @@ import org.telegram.telegrambots.meta.api.objects.photo.PhotoSize;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.concurrent.ConcurrentHashMap;
-
+/**
+ * The Telegram bot bridging chats to the Lovebox: every text or photo message is rendered
+ * as an image and sent to the box, the delivery status is polled and reflected back into
+ * the Telegram message captions, and received "waterfalls of hearts" are announced to all
+ * known chats.
+ * <p>
+ * Updates are processed one at a time on the dedicated background thread provided by
+ * {@link DefaultLongPollingUpdateConsumer}; Spring closes the consumer (and its executor)
+ * on context shutdown.
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class LoveboxBot implements SpringLongPollingBot, LongPollingSingleThreadUpdateConsumer {
+public class LoveboxBot extends DefaultLongPollingUpdateConsumer implements SpringLongPollingBot {
+
+	private static final DateTimeFormatter CAPTION_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z");
+
+	/** Above this size, entries no longer reported by the Lovebox API are evicted. */
+	private static final int MESSAGE_STORE_EVICTION_THRESHOLD = 100;
 
 	private final LoveboxBotProperties botProperties;
 
@@ -50,46 +64,53 @@ public class LoveboxBot implements SpringLongPollingBot, LongPollingSingleThread
 
 	private final LoveboxService loveboxService;
 
-	private final Set<Long> chatIds = new TreeSet<>();
+	private final TelegramClient telegramClient;
+
+	private final Set<Long> chatIds = new ConcurrentSkipListSet<>();
 
 	private final ConcurrentHashMap<String, String> loveboxMessageStore = new ConcurrentHashMap<>();
 
-	private final ConcurrentHashMap<String, Collection<Pair<Long, Message>>> telegramMessageStore = new ConcurrentHashMap<>();
+	private final ConcurrentHashMap<String, Collection<ChatMessage>> telegramMessageStore = new ConcurrentHashMap<>();
 
-	private TelegramClient telegramClient;
-
-	@PostConstruct
-	public void init() {
-		telegramClient = new OkHttpTelegramClient(getBotToken());
-	}
-
+	/**
+	 * Polls the delivery status of recent Lovebox messages and updates the captions of
+	 * the corresponding Telegram messages on status changes (e.g. sending → read).
+	 */
 	@Scheduled(fixedRate = 20_000)
 	public void readMessageBox() {
-		List<Pair<String, String>> messages = loveboxService.getMessages();
-		messages.forEach(p -> {
-			loveboxMessageStore.computeIfPresent(p.left(), (key, value) -> {
-				if (!value.equals(p.right())) {
-					Collection<Pair<Long, Message>> pairs = telegramMessageStore.get(p.left());
-					if (pairs != null) {
-						for (Pair<Long, Message> pair : pairs) {
-							Message message = pair.right();
-							if (message != null) {
-								updatePhotoMessageCaption(message, p.right());
-							}
-						}
-					}
+		List<MessageStatus> messages = this.loveboxService.getMessages();
+		for (MessageStatus message : messages) {
+			String previousStatus = this.loveboxMessageStore.put(message.messageId(), message.status());
+			if (previousStatus != null && !previousStatus.equals(message.status())) {
+				Collection<ChatMessage> recipients = this.telegramMessageStore.getOrDefault(message.messageId(),
+						List.of());
+				for (ChatMessage recipient : recipients) {
+					updatePhotoMessageCaption(recipient.message(), message.status());
 				}
-				return value;
-			});
-			loveboxMessageStore.put(p.left(), p.right());
-		});
+			}
+		}
+		evictStaleEntries(messages);
+	}
+
+	/**
+	 * Bounds the in-memory stores: entries for messages the Lovebox API no longer reports
+	 * cannot receive further status updates and are dropped once the store grows beyond
+	 * {@link #MESSAGE_STORE_EVICTION_THRESHOLD}.
+	 */
+	private void evictStaleEntries(List<MessageStatus> latestMessages) {
+		if (latestMessages.isEmpty() || this.loveboxMessageStore.size() <= MESSAGE_STORE_EVICTION_THRESHOLD) {
+			return;
+		}
+		Set<String> activeIds = latestMessages.stream().map(MessageStatus::messageId).collect(Collectors.toSet());
+		this.loveboxMessageStore.keySet().removeIf(id -> !activeIds.contains(id));
+		this.telegramMessageStore.keySet().removeIf(id -> !activeIds.contains(id));
 	}
 
 	@Scheduled(fixedRate = 20_000)
 	public void receiveWaterfallOfHearts() {
-		String heartsRainId = loveboxService.receiveWaterfallOfHearts();
+		String heartsRainId = this.loveboxService.receiveWaterfallOfHearts();
 		if (heartsRainId != null) {
-			chatIds.forEach(chatId -> sendTextMessage(chatId, "You received a waterfall of hearts! ❤❤❤"));
+			this.chatIds.forEach(chatId -> sendTextMessage(chatId, "You received a waterfall of hearts! ❤❤❤"));
 		}
 	}
 
@@ -105,62 +126,58 @@ public class LoveboxBot implements SpringLongPollingBot, LongPollingSingleThread
 		}
 		catch (RuntimeException | LinkageError ex) {
 			// LinkageError too: a missing native-image JNI/reflection registration
-			// surfaces
-			// as an Error, which would otherwise kill this consumer thread without a
-			// trace.
+			// surfaces as an Error, which would otherwise kill this consumer thread
+			// without a trace.
 			log.error("Failed to process message from chat {}: {}", message.getChatId(), ex.getMessage(), ex);
 			sendTextMessage(message.getChatId(), "Sorry, I could not process that message.");
 		}
 	}
 
 	private void handleMessage(Message message) {
-		chatIds.add(message.getChat().getId());
+		this.chatIds.add(message.getChatId());
 
-		// Suppress Telegrams "/start" command
+		// Suppress Telegram's "/start" command
 		String text = message.getText();
 		if (text != null && text.startsWith("/start")) {
 			return;
 		}
 
-		Pair<String, byte[]> imagePair = null;
+		String caption = message.hasPhoto() ? message.getCaption() : text;
+		LoveboxImage image = renderImage(message, caption);
 
-		// Create Lovebox Image
+		SendResult result = this.loveboxService.sendImageMessage(image.dataUri());
+		this.loveboxMessageStore.put(result.messageId(), result.status());
+
+		// Echo the rendered image with its delivery status to every known chat
+		for (long chatId : this.chatIds) {
+			Message sentMessage = sendPhotoMessage(chatId, caption, image, result);
+			if (sentMessage != null) {
+				this.telegramMessageStore.computeIfAbsent(result.messageId(), key -> new CopyOnWriteArrayList<>())
+					.add(new ChatMessage(chatId, sentMessage));
+			}
+		}
+	}
+
+	/**
+	 * Renders the Lovebox image for the given message, falling back to the bundled
+	 * default image for unsupported message types or failed photo downloads.
+	 */
+	private LoveboxImage renderImage(Message message, String caption) {
 		try {
 			if (message.hasPhoto()) {
-				File file = downloadImageFromPhotoMessage(message);
-				text = message.getCaption();
-				imagePair = imageService.resizeImageToPair(file, text);
+				File photo = downloadImageFromPhotoMessage(message);
+				if (photo != null) {
+					return this.imageService.renderPhoto(photo, caption);
+				}
 			}
-
-			if (message.hasText()) {
-				imagePair = imageService.createTextImageToPair(text);
-			}
-
-			// Set default message
-			if (imagePair == null) {
-				imagePair = imageService.createFixedImageToPair();
+			else if (message.hasText()) {
+				return this.imageService.renderText(caption);
 			}
 		}
-		catch (RuntimeException e) {
-			// Suppress exception
-			log.error("Exception occurred: {}", e.getMessage(), e);
+		catch (RuntimeException ex) {
+			log.error("Could not render image, using the fallback image: {}", ex.getMessage(), ex);
 		}
-
-		if (imagePair == null) {
-			log.error("No image could be created; skipping message for chat(s) {}", chatIds);
-			return;
-		}
-
-		Triple<String, LocalDateTime, String> statusTripple = loveboxService.sendImageMessage(imagePair.left());
-		loveboxMessageStore.put(statusTripple.left(), statusTripple.right());
-
-		// Send/respond Message
-		for (long chatId : chatIds) {
-			Message sentMessage = sendPhotoMessage(chatId, text, imagePair, statusTripple);
-			telegramMessageStore
-				.compute(statusTripple.left(), (key, value) -> value == null ? new ArrayList<>() : value)
-				.add(new Pair<>(chatId, sentMessage));
-		}
+		return this.imageService.renderFallback();
 	}
 
 	protected File downloadImageFromPhotoMessage(Message message) {
@@ -169,13 +186,13 @@ public class LoveboxBot implements SpringLongPollingBot, LongPollingSingleThread
 
 		GetFile getFile = new GetFile(photoSize.getFileId());
 		try {
-			String filePath = telegramClient.execute(getFile).getFilePath();
-			File file = telegramClient.downloadFile(filePath);
-			log.debug("Download photo \"{}\" from {}", photoSize.getFileId(), filePath);
+			String filePath = this.telegramClient.execute(getFile).getFilePath();
+			File file = this.telegramClient.downloadFile(filePath);
+			log.debug("Downloaded photo \"{}\" from {}", photoSize.getFileId(), filePath);
 			return file;
 		}
-		catch (TelegramApiException | RuntimeException e) {
-			log.error("Failed to download photo \"{}\" due to error: {}", photoSize.getFileId(), e.getMessage(), e);
+		catch (TelegramApiException | RuntimeException ex) {
+			log.error("Failed to download photo \"{}\" due to error: {}", photoSize.getFileId(), ex.getMessage(), ex);
 		}
 		return null;
 	}
@@ -184,46 +201,47 @@ public class LoveboxBot implements SpringLongPollingBot, LongPollingSingleThread
 		String textMessage = text != null ? text : "";
 		SendMessage message = new SendMessage(String.valueOf(chatId), textMessage);
 		try {
-			telegramClient.execute(message);
+			this.telegramClient.execute(message);
 			log.atDebug()
-				.addArgument(() -> textMessage.replaceAll("\n", " "))
+				.addArgument(() -> textMessage.replace("\n", " "))
 				.addArgument(chatId)
 				.log("Sent message \"{}\" to {}");
 		}
-		catch (TelegramApiException | RuntimeException e) {
-			log.error("Failed to send message \"{}\" to {} due to error: {}", textMessage, chatId, e.getMessage(), e);
+		catch (TelegramApiException | RuntimeException ex) {
+			log.error("Failed to send message \"{}\" to {} due to error: {}", textMessage, chatId, ex.getMessage(), ex);
 		}
 	}
 
-	protected Message sendPhotoMessage(long chatId, String text, Pair<String, byte[]> imagePair,
-			Triple<String, LocalDateTime, String> statusTripple) {
+	protected Message sendPhotoMessage(long chatId, String text, LoveboxImage image, SendResult result) {
 		String textMessage = text != null ? text : "";
 		SendPhoto message = new SendPhoto(String.valueOf(chatId),
-				new InputFile(new ByteArrayInputStream(imagePair.right()), "image.png"));
+				new InputFile(new ByteArrayInputStream(image.png()), "image.png"));
 
-		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z");
-		String formattedDateTime = ZonedDateTime.of(statusTripple.middle(), ZoneId.of("Europe/London"))
-			.format(formatter);
-		String caption = "Message: \"%s\" \nStatus: [%s].\nExecuted: %s".formatted(textMessage.replaceAll("\n", " "),
-				statusTripple.right(), formattedDateTime);
+		String formattedDateTime = result.sentAt().atZone(ZoneId.systemDefault()).format(CAPTION_TIME_FORMAT);
+		String caption = "Message: \"%s\" \nStatus: [%s].\nExecuted: %s".formatted(textMessage.replace("\n", " "),
+				result.status(), formattedDateTime);
 		message.setCaption(caption);
 
 		Message sentMessage = null;
 		try {
-			sentMessage = telegramClient.execute(message);
+			sentMessage = this.telegramClient.execute(message);
 			log.atDebug()
-				.addArgument(() -> textMessage.replaceAll("\n", " "))
+				.addArgument(() -> textMessage.replace("\n", " "))
 				.addArgument(chatId)
-				.log("Sent message \"{}\" to {}");
+				.log("Sent photo message \"{}\" to {}");
 		}
-		catch (TelegramApiException | RuntimeException e) {
-			log.error("Failed to send message \"{}\" to {} due to error: {}", textMessage, chatId, e.getMessage(), e);
+		catch (TelegramApiException | RuntimeException ex) {
+			log.error("Failed to send photo message \"{}\" to {} due to error: {}", textMessage, chatId,
+					ex.getMessage(), ex);
 		}
 		return sentMessage;
 	}
 
 	protected void updatePhotoMessageCaption(Message message, String status) {
-		String text = message.getCaption().replaceAll("\\[.*\\]\\.", "[" + status + "].");
+		if (message == null || message.getCaption() == null) {
+			return;
+		}
+		String text = message.getCaption().replaceAll("\\[.*]\\.", "[" + status + "].");
 		String chatId = String.valueOf(message.getChatId());
 		EditMessageCaption editMessage = EditMessageCaption.builder()
 			.messageId(message.getMessageId())
@@ -231,31 +249,38 @@ public class LoveboxBot implements SpringLongPollingBot, LongPollingSingleThread
 			.caption(text)
 			.build();
 		try {
-			telegramClient.execute(editMessage);
+			this.telegramClient.execute(editMessage);
 			log.atDebug()
-				.addArgument(() -> text.replaceAll("\n", " "))
+				.addArgument(() -> text.replace("\n", " "))
 				.addArgument(chatId)
-				.log("Sent message \"{}\" to {}");
+				.log("Updated caption to \"{}\" in chat {}");
 		}
-		catch (TelegramApiException | RuntimeException e) {
-			log.error("Failed to send message \"{}\" to {} due to error: {}", text, chatId, e.getMessage(), e);
+		catch (TelegramApiException | RuntimeException ex) {
+			log.error("Failed to update caption \"{}\" in chat {} due to error: {}", text, chatId, ex.getMessage(), ex);
 		}
 	}
 
 	@AfterBotRegistration
 	public void afterRegistration(BotSession botSession) {
-		log.info("Registered TelegramBot with Username: {} running state is: {}", botProperties.username(),
+		log.info("Registered TelegramBot with Username: {} running state is: {}", this.botProperties.username(),
 				botSession.isRunning());
 	}
 
 	@Override
 	public String getBotToken() {
-		return botProperties.token();
+		return this.botProperties.token();
 	}
 
 	@Override
 	public LongPollingUpdateConsumer getUpdatesConsumer() {
 		return this;
+	}
+
+	/**
+	 * A message echoed to a Telegram chat, remembered for later caption updates.
+	 */
+	private record ChatMessage(long chatId, Message message) {
+
 	}
 
 }
