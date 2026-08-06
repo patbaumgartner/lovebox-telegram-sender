@@ -1,5 +1,7 @@
 package com.patbaumgartner.lovebox.telegram.sender.config;
 
+import java.util.List;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.aot.hint.MemberCategory;
@@ -25,7 +27,17 @@ public class TelegramBotsRuntimeHints implements RuntimeHintsRegistrar {
 
 	private static final String TELEGRAM_API_BASE_PACKAGE = "org.telegram.telegrambots.meta.api";
 
-	private static final String JPEG_IMAGE_READER = "com.sun.imageio.plugins.jpeg.JPEGImageReader";
+	/**
+	 * Types whose members {@code JPEGImageReader.initReaderIDs} resolves through JNI when
+	 * the JPEG decoder is first used. It looks up methods on the reader and the stream,
+	 * and the fields {@code JPEGQTable.qTable}, {@code JPEGHuffmanTable.lengths} and
+	 * {@code JPEGHuffmanTable.values}. Registering only the reader's methods leaves those
+	 * field lookups unresolved, and {@code GetFieldID} then fails with
+	 * {@code NoSuchFieldError: javax.imageio.plugins.jpeg.JPEGQTable.qTable}.
+	 */
+	private static final List<String> JPEG_JNI_TYPES = List.of("com.sun.imageio.plugins.jpeg.JPEGImageReader",
+			"javax.imageio.stream.ImageInputStream", "javax.imageio.plugins.jpeg.JPEGQTable",
+			"javax.imageio.plugins.jpeg.JPEGHuffmanTable");
 
 	@Override
 	public void registerHints(RuntimeHints hints, ClassLoader classLoader) {
@@ -48,7 +60,9 @@ public class TelegramBotsRuntimeHints implements RuntimeHintsRegistrar {
 				log.trace("Skipping Telegram Bot API type for native hints: {} ({})", className, ex.getMessage());
 			}
 		}
-		hints.jni().registerType(TypeReference.of(JPEG_IMAGE_READER), MemberCategory.INVOKE_DECLARED_METHODS);
+		for (String jpegType : JPEG_JNI_TYPES) {
+			hints.jni().registerType(TypeReference.of(jpegType), MemberCategory.values());
+		}
 		log.debug("Registered native reflection hints for {} Telegram Bot API types", count);
 	}
 
