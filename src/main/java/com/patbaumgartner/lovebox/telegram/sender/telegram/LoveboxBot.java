@@ -95,57 +95,71 @@ public class LoveboxBot implements SpringLongPollingBot, LongPollingSingleThread
 
 	@Override
 	public void consume(Update update) {
-		if (update.hasMessage()) {
+		if (!update.hasMessage()) {
+			return;
+		}
 
-			// Retrieve Message
-			Message message = update.getMessage();
-			chatIds.add(message.getChat().getId());
+		Message message = update.getMessage();
+		try {
+			handleMessage(message);
+		}
+		catch (RuntimeException | LinkageError ex) {
+			// LinkageError too: a missing native-image JNI/reflection registration
+			// surfaces
+			// as an Error, which would otherwise kill this consumer thread without a
+			// trace.
+			log.error("Failed to process message from chat {}: {}", message.getChatId(), ex.getMessage(), ex);
+			sendTextMessage(message.getChatId(), "Sorry, I could not process that message.");
+		}
+	}
 
-			// Suppress Telegrams "/start" command
-			String text = message.getText();
-			if (text != null && text.startsWith("/start")) {
-				return;
+	private void handleMessage(Message message) {
+		chatIds.add(message.getChat().getId());
+
+		// Suppress Telegrams "/start" command
+		String text = message.getText();
+		if (text != null && text.startsWith("/start")) {
+			return;
+		}
+
+		Pair<String, byte[]> imagePair = null;
+
+		// Create Lovebox Image
+		try {
+			if (message.hasPhoto()) {
+				File file = downloadImageFromPhotoMessage(message);
+				text = message.getCaption();
+				imagePair = imageService.resizeImageToPair(file, text);
 			}
 
-			Pair<String, byte[]> imagePair = null;
-
-			// Create Lovebox Image
-			try {
-				if (message.hasPhoto()) {
-					File file = downloadImageFromPhotoMessage(message);
-					text = message.getCaption();
-					imagePair = imageService.resizeImageToPair(file, text);
-				}
-
-				if (message.hasText()) {
-					imagePair = imageService.createTextImageToPair(text);
-				}
-
-				// Set default message
-				if (imagePair == null) {
-					imagePair = imageService.createFixedImageToPair();
-				}
-			}
-			catch (RuntimeException e) {
-				// Suppress exception
-				log.error("Exception occurred: {}", e.getMessage(), e);
+			if (message.hasText()) {
+				imagePair = imageService.createTextImageToPair(text);
 			}
 
+			// Set default message
 			if (imagePair == null) {
-				log.error("No image could be created; skipping message for chat(s) {}", chatIds);
-				return;
+				imagePair = imageService.createFixedImageToPair();
 			}
+		}
+		catch (RuntimeException e) {
+			// Suppress exception
+			log.error("Exception occurred: {}", e.getMessage(), e);
+		}
 
-			Triple<String, LocalDateTime, String> statusTripple = loveboxService.sendImageMessage(imagePair.left());
-			loveboxMessageStore.put(statusTripple.left(), statusTripple.right());
+		if (imagePair == null) {
+			log.error("No image could be created; skipping message for chat(s) {}", chatIds);
+			return;
+		}
 
-			// Send/respond Message
-			for (long chatId : chatIds) {
-				Message sentMessage = sendPhotoMessage(chatId, text, imagePair, statusTripple);
-				telegramMessageStore
-					.compute(statusTripple.left(), (key, value) -> value == null ? new ArrayList<>() : value)
-					.add(new Pair<>(chatId, sentMessage));
-			}
+		Triple<String, LocalDateTime, String> statusTripple = loveboxService.sendImageMessage(imagePair.left());
+		loveboxMessageStore.put(statusTripple.left(), statusTripple.right());
+
+		// Send/respond Message
+		for (long chatId : chatIds) {
+			Message sentMessage = sendPhotoMessage(chatId, text, imagePair, statusTripple);
+			telegramMessageStore
+				.compute(statusTripple.left(), (key, value) -> value == null ? new ArrayList<>() : value)
+				.add(new Pair<>(chatId, sentMessage));
 		}
 	}
 
