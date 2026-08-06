@@ -1,4 +1,4 @@
-package com.patbaumgartner.lovebox.telegram.sender.config;
+package com.patbaumgartner.lovebox.telegram.sender.telegram;
 
 import java.util.List;
 
@@ -6,9 +6,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 
+import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
 import org.telegram.telegrambots.longpolling.TelegramBotsLongPollingApplication;
 import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot;
 import org.telegram.telegrambots.longpolling.starter.TelegramBotInitializer;
+import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 /**
  * Explicit replacement for the telegrambots starter auto-configuration
@@ -32,6 +34,17 @@ import org.telegram.telegrambots.longpolling.starter.TelegramBotInitializer;
  */
 @Configuration(proxyBeanMethods = false)
 public class TelegramBotsConfiguration {
+
+	/**
+	 * The client used to call the Telegram Bot API. Defined as a bean (rather than
+	 * instantiated inside {@link LoveboxBot}) so tests can replace it with a mock.
+	 * @param botProperties the bot credentials
+	 * @return the Telegram client
+	 */
+	@Bean
+	public TelegramClient telegramClient(LoveboxBotProperties botProperties) {
+		return new OkHttpTelegramClient(botProperties.token());
+	}
 
 	/**
 	 * The long-polling runtime; closed on context shutdown.

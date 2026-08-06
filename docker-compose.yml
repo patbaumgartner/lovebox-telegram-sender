@@ -1,8 +1,21 @@
-version: "3.8"
-
 services:
   lovebox-telegram-sender:
     image: patbaumgartner/lovebox-telegram-sender:${VERSION:-latest}
     container_name: lovebox-telegram-sender
+    restart: unless-stopped
     env_file:
       - ./.env
+    environment:
+      # Timezone used for the "Executed" timestamp in Telegram captions and the
+      # timezone offset reported to the Lovebox API.
+      TZ: ${TZ:-Europe/Zurich}
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          # The GraalVM native image typically stays well below this.
+          memory: 256M
