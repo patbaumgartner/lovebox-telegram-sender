@@ -14,6 +14,7 @@ import java.util.stream.Collectors;
 
 import com.patbaumgartner.lovebox.telegram.sender.image.ImageService;
 import com.patbaumgartner.lovebox.telegram.sender.image.LoveboxImage;
+import com.patbaumgartner.lovebox.telegram.sender.image.UnsupportedMessageException;
 import com.patbaumgartner.lovebox.telegram.sender.lovebox.LoveboxService;
 import com.patbaumgartner.lovebox.telegram.sender.lovebox.MessageStatus;
 import com.patbaumgartner.lovebox.telegram.sender.lovebox.SendResult;
@@ -141,6 +142,10 @@ public class LoveboxBot extends DefaultLongPollingUpdateConsumer implements Spri
 		try {
 			handleMessage(message);
 		}
+		catch (UnsupportedMessageException ex) {
+			log.info("Rejected a message from chat {}: {}", message.getChatId(), ex.getMessage());
+			sendTextMessage(message.getChatId(), ex.getMessage());
+		}
 		catch (RuntimeException | LinkageError ex) {
 			// LinkageError too: a missing native-image JNI/reflection registration
 			// surfaces as an Error, which would otherwise kill this consumer thread
@@ -176,28 +181,32 @@ public class LoveboxBot extends DefaultLongPollingUpdateConsumer implements Spri
 	}
 
 	/**
-	 * Renders the Lovebox image for the given message, falling back to the bundled
-	 * default image for unsupported message types or failed photo downloads.
+	 * Renders the Lovebox image for the given message.
+	 * @throws UnsupportedMessageException if the message carries nothing this bot can put
+	 * on the box; the exception message is sent back to the chat
 	 */
 	private LoveboxImage renderImage(Message message, String caption) {
-		try {
-			if (message.hasPhoto()) {
-				File photo = downloadImageFromPhotoMessage(message);
-				if (photo != null) {
-					return this.imageService.renderPhoto(photo, caption);
+		if (message.hasPhoto()) {
+			File photo = downloadPhoto(message);
+			try {
+				return this.imageService.renderPhoto(photo, caption);
+			}
+			finally {
+				// TelegramClient.downloadFile writes to File.createTempFile and leaves
+				// cleanup to the caller, so an undeleted photo per message would
+				// slowly fill the container disk.
+				if (!photo.delete()) {
+					log.warn("Could not delete the downloaded photo {}", photo);
 				}
 			}
-			else if (message.hasText()) {
-				return this.imageService.renderText(caption);
-			}
 		}
-		catch (RuntimeException ex) {
-			log.error("Could not render image, using the fallback image: {}", ex.getMessage(), ex);
+		if (message.hasText()) {
+			return this.imageService.renderText(caption);
 		}
-		return this.imageService.renderFallback();
+		throw new UnsupportedMessageException("I can only put text messages and photos on the Lovebox.");
 	}
 
-	protected File downloadImageFromPhotoMessage(Message message) {
+	private File downloadPhoto(Message message) {
 		List<PhotoSize> photoSizes = message.getPhoto();
 		PhotoSize photoSize = photoSizes.get(photoSizes.size() - 1);
 
@@ -209,9 +218,9 @@ public class LoveboxBot extends DefaultLongPollingUpdateConsumer implements Spri
 			return file;
 		}
 		catch (TelegramApiException | RuntimeException ex) {
-			log.error("Failed to download photo \"{}\" due to error: {}", photoSize.getFileId(), ex.getMessage(), ex);
+			throw new IllegalStateException(
+					"Could not download photo \"%s\" from Telegram".formatted(photoSize.getFileId()), ex);
 		}
-		return null;
 	}
 
 	protected boolean sendTextMessage(long chatId, String text) {
