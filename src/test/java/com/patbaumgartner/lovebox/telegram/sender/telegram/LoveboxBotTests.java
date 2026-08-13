@@ -184,24 +184,39 @@ class LoveboxBotTests {
 	}
 
 	@Test
-	void receiveWaterfallOfHeartsNotifiesKnownChats() throws TelegramApiException {
+	void receiveWaterfallOfHeartsNotifiesKnownChatsAndAcknowledges() throws TelegramApiException {
 		when(this.imageService.renderText("hello")).thenReturn(IMAGE);
 		when(this.loveboxService.sendImageMessage(IMAGE.dataUri())).thenReturn(SEND_RESULT);
 		when(this.telegramClient.execute(any(SendPhoto.class))).thenReturn(mock(Message.class));
 		this.bot.consume(updateWithMessage(textMessage(7L, "hello")));
 
-		when(this.loveboxService.receiveWaterfallOfHearts()).thenReturn("heart-1");
+		when(this.loveboxService.pendingHeart()).thenReturn("heart-1");
 		this.bot.receiveWaterfallOfHearts();
 
 		ArgumentCaptor<SendMessage> messageCaptor = ArgumentCaptor.forClass(SendMessage.class);
 		verify(this.telegramClient).execute(messageCaptor.capture());
 		assertThat(messageCaptor.getValue().getChatId()).isEqualTo("7");
 		assertThat(messageCaptor.getValue().getText()).contains("waterfall of hearts");
+		verify(this.loveboxService).acknowledgeHeart("heart-1");
+	}
+
+	@Test
+	void receiveWaterfallOfHeartsKeepsTheHeartPendingWhenTelegramFails() throws TelegramApiException {
+		when(this.imageService.renderText("hello")).thenReturn(IMAGE);
+		when(this.loveboxService.sendImageMessage(IMAGE.dataUri())).thenReturn(SEND_RESULT);
+		when(this.telegramClient.execute(any(SendPhoto.class))).thenReturn(mock(Message.class));
+		this.bot.consume(updateWithMessage(textMessage(7L, "hello")));
+		when(this.telegramClient.execute(any(SendMessage.class))).thenThrow(new TelegramApiException("offline"));
+
+		when(this.loveboxService.pendingHeart()).thenReturn("heart-1");
+		this.bot.receiveWaterfallOfHearts();
+
+		verify(this.loveboxService, never()).acknowledgeHeart(any());
 	}
 
 	@Test
 	void receiveWaterfallOfHeartsDoesNothingWithoutPendingHearts() {
-		when(this.loveboxService.receiveWaterfallOfHearts()).thenReturn(null);
+		when(this.loveboxService.pendingHeart()).thenReturn(null);
 
 		this.bot.receiveWaterfallOfHearts();
 

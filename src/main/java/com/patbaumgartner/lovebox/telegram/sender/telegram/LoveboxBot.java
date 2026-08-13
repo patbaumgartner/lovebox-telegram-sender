@@ -116,9 +116,18 @@ public class LoveboxBot extends DefaultLongPollingUpdateConsumer implements Spri
 
 	@Scheduled(fixedRate = 20_000)
 	public void receiveWaterfallOfHearts() {
-		String heartsRainId = this.loveboxService.receiveWaterfallOfHearts();
-		if (heartsRainId != null) {
-			this.chatIds.forEach(chatId -> sendTextMessage(chatId, "You received a waterfall of hearts! ❤❤❤"));
+		String heartId = this.loveboxService.pendingHeart();
+		if (heartId == null) {
+			return;
+		}
+		boolean delivered = false;
+		for (long chatId : this.chatIds) {
+			delivered |= sendTextMessage(chatId, "You received a waterfall of hearts! ❤❤❤");
+		}
+		// Acknowledge only after the news reached a chat, otherwise a Telegram
+		// outage would swallow the event: the API reports each heart just once.
+		if (delivered) {
+			this.loveboxService.acknowledgeHeart(heartId);
 		}
 	}
 
@@ -205,7 +214,7 @@ public class LoveboxBot extends DefaultLongPollingUpdateConsumer implements Spri
 		return null;
 	}
 
-	protected void sendTextMessage(long chatId, String text) {
+	protected boolean sendTextMessage(long chatId, String text) {
 		String textMessage = text != null ? text : "";
 		SendMessage message = new SendMessage(String.valueOf(chatId), textMessage);
 		try {
@@ -214,9 +223,11 @@ public class LoveboxBot extends DefaultLongPollingUpdateConsumer implements Spri
 				.addArgument(() -> textMessage.replace("\n", " "))
 				.addArgument(chatId)
 				.log("Sent message \"{}\" to {}");
+			return true;
 		}
 		catch (TelegramApiException | RuntimeException ex) {
 			log.error("Failed to send message \"{}\" to {} due to error: {}", textMessage, chatId, ex.getMessage(), ex);
+			return false;
 		}
 	}
 

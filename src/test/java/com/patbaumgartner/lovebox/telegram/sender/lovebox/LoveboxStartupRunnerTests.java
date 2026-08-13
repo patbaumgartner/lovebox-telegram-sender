@@ -6,7 +6,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThatNoException;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -23,23 +22,21 @@ class LoveboxStartupRunnerTests {
 	}
 
 	@Test
-	void verifiesAccountAndRegistersDeviceWhenEnabled() {
-		when(this.loveboxService.accountExists()).thenReturn(true);
+	void initializesTheAccountWhenEnabled() {
+		when(this.loveboxService.initializeIfNeeded()).thenReturn(true);
 		LoveboxStartupRunner runner = new LoveboxStartupRunner(properties(true), this.loveboxService);
 
 		runner.run(null);
 
-		verify(this.loveboxService).registerDeviceAndSignature();
+		verify(this.loveboxService).initializeIfNeeded();
 	}
 
 	@Test
-	void skipsDeviceRegistrationForUnknownAccount() {
-		when(this.loveboxService.accountExists()).thenReturn(false);
+	void survivesAnUnknownAccount() {
+		when(this.loveboxService.initializeIfNeeded()).thenReturn(false);
 		LoveboxStartupRunner runner = new LoveboxStartupRunner(properties(true), this.loveboxService);
 
-		runner.run(null);
-
-		verify(this.loveboxService, never()).registerDeviceAndSignature();
+		assertThatNoException().isThrownBy(() -> runner.run(null));
 	}
 
 	@Test
@@ -53,7 +50,7 @@ class LoveboxStartupRunnerTests {
 
 	@Test
 	void neverPropagatesApiFailures() {
-		when(this.loveboxService.accountExists()).thenThrow(new IllegalStateException("API down"));
+		when(this.loveboxService.initializeIfNeeded()).thenThrow(new IllegalStateException("API down"));
 		LoveboxStartupRunner runner = new LoveboxStartupRunner(properties(true), this.loveboxService);
 
 		assertThatNoException().isThrownBy(() -> runner.run(null));
