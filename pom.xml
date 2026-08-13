@@ -19,7 +19,6 @@
 
   <properties>
     <!-- Project properties for dependency management -->
-    <emoji4j.version>6.0</emoji4j.version>
     <imgscalr.version>4.2</imgscalr.version>
     <jacoco.version>0.8.15</jacoco.version>
     <java.version>25</java.version>
@@ -69,11 +68,6 @@
       <artifactId>spring-boot-configuration-processor</artifactId>
       <optional>true</optional>
     </dependency>
-    <dependency>
-      <groupId>org.projectlombok</groupId>
-      <artifactId>lombok</artifactId>
-      <optional>true</optional>
-    </dependency>
 
     <dependency>
       <groupId>org.springframework.boot</groupId>
@@ -100,10 +94,6 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
           <annotationProcessorPaths>
-            <path>
-              <groupId>org.projectlombok</groupId>
-              <artifactId>lombok</artifactId>
-            </path>
             <!-- Must be listed explicitly: annotationProcessorPaths disables
                  classpath scanning for processors, which would silently skip
                  configuration metadata generation. -->
@@ -118,12 +108,6 @@
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
         <configuration>
-          <excludes>
-            <exclude>
-              <groupId>org.projectlombok</groupId>
-              <artifactId>lombok</artifactId>
-            </exclude>
-          </excludes>
           <image>
             <name>docker.io/patbaumgartner/${project.artifactId}:${project.version}</name>
             <!-- Builder needs to match run-image from Dockerfile.base-cnb -->

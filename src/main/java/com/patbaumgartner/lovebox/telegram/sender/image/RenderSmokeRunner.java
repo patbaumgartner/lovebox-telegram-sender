@@ -6,8 +6,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
@@ -32,10 +32,10 @@ import org.springframework.stereotype.Component;
  * conditions on beans are evaluated at build time under AOT, so a profile-gated bean
  * would not exist in the native image.
  */
-@Slf4j
 @Component
-@RequiredArgsConstructor
 public class RenderSmokeRunner implements ApplicationRunner {
+
+	private static final Logger log = LoggerFactory.getLogger(RenderSmokeRunner.class);
 
 	static final String ENABLED_PROPERTY = "render.smoke.enabled";
 
@@ -46,6 +46,14 @@ public class RenderSmokeRunner implements ApplicationRunner {
 	private final ResourceLoader resourceLoader;
 
 	private final ConfigurableApplicationContext applicationContext;
+
+	public RenderSmokeRunner(Environment environment, ImageService imageService, ResourceLoader resourceLoader,
+			ConfigurableApplicationContext applicationContext) {
+		this.environment = environment;
+		this.imageService = imageService;
+		this.resourceLoader = resourceLoader;
+		this.applicationContext = applicationContext;
+	}
 
 	@Override
 	public void run(ApplicationArguments args) throws Exception {

@@ -1,7 +1,7 @@
 package com.patbaumgartner.lovebox.telegram.sender.lovebox;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
@@ -13,14 +13,19 @@ import org.springframework.stereotype.Component;
  * Failures are only logged: a temporarily unreachable Lovebox API must not crash-loop the
  * container on the NAS.
  */
-@Slf4j
 @Component
-@RequiredArgsConstructor
 public class LoveboxStartupRunner implements ApplicationRunner {
+
+	private static final Logger log = LoggerFactory.getLogger(LoveboxStartupRunner.class);
 
 	private final LoveboxRestClientProperties properties;
 
 	private final LoveboxService loveboxService;
+
+	public LoveboxStartupRunner(LoveboxRestClientProperties properties, LoveboxService loveboxService) {
+		this.properties = properties;
+		this.loveboxService = loveboxService;
+	}
 
 	@Override
 	public void run(ApplicationArguments args) {
