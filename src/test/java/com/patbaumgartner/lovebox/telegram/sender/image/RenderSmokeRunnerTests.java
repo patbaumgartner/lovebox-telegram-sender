@@ -4,15 +4,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.mock.env.MockEnvironment;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 
 class RenderSmokeRunnerTests {
-
-	private final DefaultResourceLoader resourceLoader = new DefaultResourceLoader();
 
 	@Test
 	void doesNothingWhenDisabled() throws Exception {
@@ -36,7 +33,7 @@ class RenderSmokeRunnerTests {
 	}
 
 	private RenderSmokeRunner runner(MockEnvironment environment, List<Integer> shutdowns) {
-		return new RenderSmokeRunner(environment, new ImageService(this.resourceLoader), this.resourceLoader, null) {
+		return new RenderSmokeRunner(environment, new ImageService(), null) {
 			@Override
 			protected void shutdown() {
 				shutdowns.add(0);
