@@ -16,9 +16,9 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import javax.imageio.ImageIO;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.imgscalr.Scalr;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
@@ -28,10 +28,10 @@ import org.springframework.stereotype.Component;
  * caption, text messages centered on a random background color, and a bundled fallback
  * image.
  */
-@Slf4j
 @Component
-@RequiredArgsConstructor
 public class ImageService {
+
+	private static final Logger log = LoggerFactory.getLogger(ImageService.class);
 
 	public static final int DISPLAY_WIDTH = 1280;
 
@@ -50,6 +50,10 @@ public class ImageService {
 	static final String FALLBACK_IMAGE = "classpath:lovebox.jpeg";
 
 	private final ResourceLoader resourceLoader;
+
+	public ImageService(ResourceLoader resourceLoader) {
+		this.resourceLoader = resourceLoader;
+	}
 
 	/**
 	 * Scales a photo to the Lovebox display size, centered on a black canvas, and draws
