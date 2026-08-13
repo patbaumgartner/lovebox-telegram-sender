@@ -12,8 +12,8 @@ import java.util.UUID;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -31,10 +31,10 @@ import org.springframework.web.client.RestClientResponseException;
  * When {@code lovebox.enabled=false} all operations are no-ops (or return simulated
  * results), which keeps the GraalVM AOT training run and local development offline.
  */
-@Slf4j
 @Service
-@RequiredArgsConstructor
 public class LoveboxService {
+
+	private static final Logger log = LoggerFactory.getLogger(LoveboxService.class);
 
 	private static final Duration TOKEN_TTL = Duration.ofMinutes(30);
 
@@ -59,6 +59,11 @@ public class LoveboxService {
 	private final Object tokenLock = new Object();
 
 	private volatile CachedToken cachedToken;
+
+	public LoveboxService(LoveboxRestClientProperties properties, LoveboxRestClient restClient) {
+		this.properties = properties;
+		this.restClient = restClient;
+	}
 
 	/**
 	 * Checks whether the configured account exists.

@@ -17,8 +17,8 @@ import com.patbaumgartner.lovebox.telegram.sender.image.LoveboxImage;
 import com.patbaumgartner.lovebox.telegram.sender.lovebox.LoveboxService;
 import com.patbaumgartner.lovebox.telegram.sender.lovebox.MessageStatus;
 import com.patbaumgartner.lovebox.telegram.sender.lovebox.SendResult;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -48,10 +48,10 @@ import org.telegram.telegrambots.meta.generics.TelegramClient;
  * {@link DefaultLongPollingUpdateConsumer}; Spring closes the consumer (and its executor)
  * on context shutdown.
  */
-@Slf4j
 @Component
-@RequiredArgsConstructor
 public class LoveboxBot extends DefaultLongPollingUpdateConsumer implements SpringLongPollingBot {
+
+	private static final Logger log = LoggerFactory.getLogger(LoveboxBot.class);
 
 	private static final DateTimeFormatter CAPTION_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z");
 
@@ -71,6 +71,14 @@ public class LoveboxBot extends DefaultLongPollingUpdateConsumer implements Spri
 	private final ConcurrentHashMap<String, String> loveboxMessageStore = new ConcurrentHashMap<>();
 
 	private final ConcurrentHashMap<String, Collection<ChatMessage>> telegramMessageStore = new ConcurrentHashMap<>();
+
+	public LoveboxBot(LoveboxBotProperties botProperties, ImageService imageService, LoveboxService loveboxService,
+			TelegramClient telegramClient) {
+		this.botProperties = botProperties;
+		this.imageService = imageService;
+		this.loveboxService = loveboxService;
+		this.telegramClient = telegramClient;
+	}
 
 	/**
 	 * Polls the delivery status of recent Lovebox messages and updates the captions of
