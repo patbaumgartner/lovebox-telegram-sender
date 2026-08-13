@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.patbaumgartner.lovebox.telegram.sender.image.ImageService;
 import com.patbaumgartner.lovebox.telegram.sender.image.LoveboxImage;
+import com.patbaumgartner.lovebox.telegram.sender.image.UnsupportedMessageException;
 import com.patbaumgartner.lovebox.telegram.sender.lovebox.LoveboxService;
 import com.patbaumgartner.lovebox.telegram.sender.lovebox.MessageStatus;
 import com.patbaumgartner.lovebox.telegram.sender.lovebox.SendResult;
@@ -106,32 +107,43 @@ class LoveboxBotTests {
 	}
 
 	@Test
-	void consumeUsesFallbackImageForUnsupportedMessageTypes() throws TelegramApiException {
+	void consumeRejectsUnsupportedMessageTypesWithoutTouchingTheLovebox() throws TelegramApiException {
 		Message message = mock(Message.class);
 		when(message.getChatId()).thenReturn(7L);
 		when(message.getText()).thenReturn(null);
 		when(message.hasText()).thenReturn(false);
 		when(message.hasPhoto()).thenReturn(false);
-		when(this.imageService.renderFallback()).thenReturn(IMAGE);
-		when(this.loveboxService.sendImageMessage(IMAGE.dataUri())).thenReturn(SEND_RESULT);
-		when(this.telegramClient.execute(any(SendPhoto.class))).thenReturn(mock(Message.class));
 
 		this.bot.consume(updateWithMessage(message));
 
-		verify(this.imageService).renderFallback();
-		verify(this.loveboxService).sendImageMessage(IMAGE.dataUri());
+		ArgumentCaptor<SendMessage> messageCaptor = ArgumentCaptor.forClass(SendMessage.class);
+		verify(this.telegramClient).execute(messageCaptor.capture());
+		assertThat(messageCaptor.getValue().getText()).contains("text messages and photos");
+		verifyNoInteractions(this.loveboxService);
 	}
 
 	@Test
-	void consumeUsesFallbackImageWhenRenderingFails() throws TelegramApiException {
-		when(this.imageService.renderText("boom")).thenThrow(new IllegalStateException("render failed"));
-		when(this.imageService.renderFallback()).thenReturn(IMAGE);
-		when(this.loveboxService.sendImageMessage(IMAGE.dataUri())).thenReturn(SEND_RESULT);
-		when(this.telegramClient.execute(any(SendPhoto.class))).thenReturn(mock(Message.class));
+	void consumeForwardsARejectionReasonToTheSender() throws TelegramApiException {
+		when(this.imageService.renderText("boom"))
+			.thenThrow(new UnsupportedMessageException("That message is too long to show on the Lovebox."));
 
 		this.bot.consume(updateWithMessage(textMessage(7L, "boom")));
 
-		verify(this.imageService).renderFallback();
+		ArgumentCaptor<SendMessage> messageCaptor = ArgumentCaptor.forClass(SendMessage.class);
+		verify(this.telegramClient).execute(messageCaptor.capture());
+		assertThat(messageCaptor.getValue().getText()).isEqualTo("That message is too long to show on the Lovebox.");
+		verifyNoInteractions(this.loveboxService);
+	}
+
+	@Test
+	void consumeApologizesForUnexpectedRenderingFailures() throws TelegramApiException {
+		when(this.imageService.renderText("boom")).thenThrow(new IllegalStateException("render failed"));
+
+		this.bot.consume(updateWithMessage(textMessage(7L, "boom")));
+
+		ArgumentCaptor<SendMessage> messageCaptor = ArgumentCaptor.forClass(SendMessage.class);
+		verify(this.telegramClient).execute(messageCaptor.capture());
+		assertThat(messageCaptor.getValue().getText()).contains("could not process");
 	}
 
 	@Test
