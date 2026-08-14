@@ -125,6 +125,7 @@ jobs:
         run: |
           docker run --rm \
             -e LOVEBOX_ENABLED=false \
+            -e BOT_ENABLED=false \
             -e RENDER_SMOKE_ENABLED=true \
             docker.io/${{ secrets.DOCKERHUB_USERNAME }}/lovebox-telegram-sender:${{ steps.version.outputs.version }} \
             | tee smoke.log

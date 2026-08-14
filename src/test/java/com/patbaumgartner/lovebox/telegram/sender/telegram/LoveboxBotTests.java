@@ -2,6 +2,7 @@ package com.patbaumgartner.lovebox.telegram.sender.telegram;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 
 import com.patbaumgartner.lovebox.telegram.sender.image.ImageService;
 import com.patbaumgartner.lovebox.telegram.sender.image.LoveboxImage;
@@ -29,6 +30,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -52,10 +54,14 @@ class LoveboxBotTests {
 
 	private LoveboxBot bot;
 
+	private static LoveboxBotProperties properties(EchoMode echoMode, Long... allowedChatIds) {
+		return new LoveboxBotProperties(true, "lovebox_bot", "token", Set.of(allowedChatIds), echoMode);
+	}
+
 	@BeforeEach
 	void createBot() {
-		this.bot = new LoveboxBot(new LoveboxBotProperties("lovebox_bot", "token"), this.imageService,
-				this.loveboxService, this.telegramClient);
+		this.bot = new LoveboxBot(properties(EchoMode.SENDER, 7L), this.imageService, this.loveboxService,
+				this.telegramClient);
 	}
 
 	private static Update updateWithMessage(Message message) {
@@ -68,7 +74,7 @@ class LoveboxBotTests {
 	private static Message textMessage(long chatId, String text) {
 		Message message = mock(Message.class);
 		when(message.getChatId()).thenReturn(chatId);
-		when(message.getText()).thenReturn(text);
+		lenient().when(message.getText()).thenReturn(text);
 		lenient().when(message.hasText()).thenReturn(text != null);
 		lenient().when(message.hasPhoto()).thenReturn(false);
 		return message;
@@ -82,6 +88,68 @@ class LoveboxBotTests {
 		this.bot.consume(update);
 
 		verifyNoInteractions(this.imageService, this.loveboxService, this.telegramClient);
+	}
+
+	@Test
+	void refusesChatsThatAreNotOnTheAllowlist() throws TelegramApiException {
+		this.bot.consume(updateWithMessage(textMessage(999L, "let me in")));
+
+		ArgumentCaptor<SendMessage> messageCaptor = ArgumentCaptor.forClass(SendMessage.class);
+		verify(this.telegramClient).execute(messageCaptor.capture());
+		assertThat(messageCaptor.getValue().getChatId()).isEqualTo("999");
+		assertThat(messageCaptor.getValue().getText()).contains("private").contains("999");
+		verifyNoInteractions(this.imageService, this.loveboxService);
+	}
+
+	@Test
+	void neverPutsAnUnauthorisedMessageOnTheLovebox() {
+		this.bot.consume(updateWithMessage(textMessage(999L, "print this on your box")));
+
+		verifyNoInteractions(this.loveboxService);
+	}
+
+	@Test
+	void neverEchoesToAChatThatOnlyTriedToTalkToTheBot() throws TelegramApiException {
+		when(this.imageService.renderText("hello")).thenReturn(IMAGE);
+		when(this.loveboxService.sendImageMessage(IMAGE.dataUri())).thenReturn(SEND_RESULT);
+		when(this.telegramClient.execute(any(SendPhoto.class))).thenReturn(mock(Message.class));
+
+		this.bot.consume(updateWithMessage(textMessage(999L, "hi")));
+		this.bot.consume(updateWithMessage(textMessage(7L, "hello")));
+
+		ArgumentCaptor<SendPhoto> photoCaptor = ArgumentCaptor.forClass(SendPhoto.class);
+		verify(this.telegramClient).execute(photoCaptor.capture());
+		assertThat(photoCaptor.getValue().getChatId()).isEqualTo("7");
+	}
+
+	@Test
+	void echoesOnlyToTheSenderByDefault() throws TelegramApiException {
+		this.bot = new LoveboxBot(properties(EchoMode.SENDER, 7L, 8L), this.imageService, this.loveboxService,
+				this.telegramClient);
+		when(this.imageService.renderText("hello")).thenReturn(IMAGE);
+		when(this.loveboxService.sendImageMessage(IMAGE.dataUri())).thenReturn(SEND_RESULT);
+		when(this.telegramClient.execute(any(SendPhoto.class))).thenReturn(mock(Message.class));
+
+		this.bot.consume(updateWithMessage(textMessage(7L, "hello")));
+
+		ArgumentCaptor<SendPhoto> photoCaptor = ArgumentCaptor.forClass(SendPhoto.class);
+		verify(this.telegramClient).execute(photoCaptor.capture());
+		assertThat(photoCaptor.getValue().getChatId()).isEqualTo("7");
+	}
+
+	@Test
+	void echoesToEveryAllowedChatInAllAllowedMode() throws TelegramApiException {
+		this.bot = new LoveboxBot(properties(EchoMode.ALL_ALLOWED, 7L, 8L), this.imageService, this.loveboxService,
+				this.telegramClient);
+		when(this.imageService.renderText("hello")).thenReturn(IMAGE);
+		when(this.loveboxService.sendImageMessage(IMAGE.dataUri())).thenReturn(SEND_RESULT);
+		when(this.telegramClient.execute(any(SendPhoto.class))).thenReturn(mock(Message.class));
+
+		this.bot.consume(updateWithMessage(textMessage(7L, "hello")));
+
+		ArgumentCaptor<SendPhoto> photoCaptor = ArgumentCaptor.forClass(SendPhoto.class);
+		verify(this.telegramClient, times(2)).execute(photoCaptor.capture());
+		assertThat(photoCaptor.getAllValues()).extracting(SendPhoto::getChatId).containsExactlyInAnyOrder("7", "8");
 	}
 
 	@Test
