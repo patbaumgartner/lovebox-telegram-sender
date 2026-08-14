@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.List;
 
 import com.patbaumgartner.lovebox.telegram.sender.lovebox.MessageStatus;
+import com.patbaumgartner.lovebox.telegram.sender.telegram.PendingDeliveries.CaptionEdit;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,13 +35,56 @@ class PendingDeliveriesTests {
 	}
 
 	@Test
-	void appliesAStatusChangeOnlyOnce() {
+	void appliesAStatusChangeOnlyOnceTelegramAcceptedIt() {
+		this.deliveries.track("m1", CAPTION, "sending");
+		this.deliveries.register("m1", new TelegramEcho(7L, 42), "sending");
+		List<MessageStatus> latest = List.of(new MessageStatus("m1", "read"));
+
+		List<CaptionEdit> edits = this.deliveries.apply(latest);
+		assertThat(edits).hasSize(1);
+		this.deliveries.markDisplayed(edits.get(0));
+
+		assertThat(this.deliveries.apply(latest)).isEmpty();
+	}
+
+	@Test
+	void offersTheEditAgainUntilTelegramAcceptsIt() {
 		this.deliveries.track("m1", CAPTION, "sending");
 		this.deliveries.register("m1", new TelegramEcho(7L, 42), "sending");
 		List<MessageStatus> latest = List.of(new MessageStatus("m1", "read"));
 
 		assertThat(this.deliveries.apply(latest)).hasSize(1);
+		List<CaptionEdit> retry = this.deliveries.apply(latest);
+		assertThat(retry).hasSize(1);
+		this.deliveries.markDisplayed(retry.get(0));
+
 		assertThat(this.deliveries.apply(latest)).isEmpty();
+	}
+
+	@Test
+	void givesUpOnAnEchoTelegramKeepsRejecting() {
+		this.deliveries.track("m1", CAPTION, "sending");
+		this.deliveries.register("m1", new TelegramEcho(7L, 42), "sending");
+		List<MessageStatus> latest = List.of(new MessageStatus("m1", "read"));
+
+		for (int attempt = 0; attempt < 5; attempt++) {
+			assertThat(this.deliveries.apply(latest)).as("attempt %d", attempt).hasSize(1);
+		}
+
+		assertThat(this.deliveries.apply(latest)).isEmpty();
+	}
+
+	@Test
+	void retriesAgainAfterTheNextAcceptedEdit() {
+		this.deliveries.track("m1", CAPTION, "sending");
+		this.deliveries.register("m1", new TelegramEcho(7L, 42), "sending");
+		List<CaptionEdit> delivered = this.deliveries.apply(List.of(new MessageStatus("m1", "delivered")));
+		this.deliveries.markDisplayed(delivered.get(0));
+
+		List<MessageStatus> read = List.of(new MessageStatus("m1", "read"));
+		for (int attempt = 0; attempt < 5; attempt++) {
+			assertThat(this.deliveries.apply(read)).as("attempt %d", attempt).hasSize(1);
+		}
 	}
 
 	@Test
@@ -54,7 +98,7 @@ class PendingDeliveriesTests {
 		this.deliveries.apply(List.of(new MessageStatus("m1", "read")));
 
 		assertThat(this.deliveries.register("m1", new TelegramEcho(7L, 42), "sending"))
-			.hasValueSatisfying(caption -> assertThat(caption).contains("[read]"));
+			.hasValueSatisfying(edit -> assertThat(edit.caption()).contains("[read]"));
 	}
 
 	@Test
