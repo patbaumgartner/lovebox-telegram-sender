@@ -60,8 +60,11 @@ class LoveboxBotTests {
 
 	@BeforeEach
 	void createBot() {
-		this.bot = new LoveboxBot(properties(EchoMode.SENDER, 7L), this.imageService, this.loveboxService,
-				this.telegramClient);
+		this.bot = botWith(properties(EchoMode.SENDER, 7L));
+	}
+
+	private LoveboxBot botWith(LoveboxBotProperties properties) {
+		return new LoveboxBot(properties, this.imageService, this.loveboxService, this.telegramClient);
 	}
 
 	private static Update updateWithMessage(Message message) {
@@ -80,6 +83,31 @@ class LoveboxBotTests {
 		return message;
 	}
 
+	private Message stubEcho(int messageId) throws TelegramApiException {
+		Message sentMessage = mock(Message.class);
+		lenient().when(sentMessage.getMessageId()).thenReturn(messageId);
+		when(this.telegramClient.execute(any(SendPhoto.class))).thenReturn(sentMessage);
+		return sentMessage;
+	}
+
+	private SendPhoto capturePhoto() throws TelegramApiException {
+		ArgumentCaptor<SendPhoto> captor = ArgumentCaptor.forClass(SendPhoto.class);
+		verify(this.telegramClient).execute(captor.capture());
+		return captor.getValue();
+	}
+
+	private SendMessage captureText() throws TelegramApiException {
+		ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+		verify(this.telegramClient).execute(captor.capture());
+		return captor.getValue();
+	}
+
+	private EditMessageCaption captureEdit() throws TelegramApiException {
+		ArgumentCaptor<EditMessageCaption> captor = ArgumentCaptor.forClass(EditMessageCaption.class);
+		verify(this.telegramClient).execute(captor.capture());
+		return captor.getValue();
+	}
+
 	@Test
 	void consumeIgnoresUpdatesWithoutMessage() {
 		Update update = mock(Update.class);
@@ -94,10 +122,9 @@ class LoveboxBotTests {
 	void refusesChatsThatAreNotOnTheAllowlist() throws TelegramApiException {
 		this.bot.consume(updateWithMessage(textMessage(999L, "let me in")));
 
-		ArgumentCaptor<SendMessage> messageCaptor = ArgumentCaptor.forClass(SendMessage.class);
-		verify(this.telegramClient).execute(messageCaptor.capture());
-		assertThat(messageCaptor.getValue().getChatId()).isEqualTo("999");
-		assertThat(messageCaptor.getValue().getText()).contains("private").contains("999");
+		SendMessage reply = captureText();
+		assertThat(reply.getChatId()).isEqualTo("999");
+		assertThat(reply.getText()).contains("private").contains("999");
 		verifyNoInteractions(this.imageService, this.loveboxService);
 	}
 
@@ -112,44 +139,12 @@ class LoveboxBotTests {
 	void neverEchoesToAChatThatOnlyTriedToTalkToTheBot() throws TelegramApiException {
 		when(this.imageService.renderText("hello")).thenReturn(IMAGE);
 		when(this.loveboxService.sendImageMessage(IMAGE.dataUri())).thenReturn(SEND_RESULT);
-		when(this.telegramClient.execute(any(SendPhoto.class))).thenReturn(mock(Message.class));
+		stubEcho(42);
 
 		this.bot.consume(updateWithMessage(textMessage(999L, "hi")));
 		this.bot.consume(updateWithMessage(textMessage(7L, "hello")));
 
-		ArgumentCaptor<SendPhoto> photoCaptor = ArgumentCaptor.forClass(SendPhoto.class);
-		verify(this.telegramClient).execute(photoCaptor.capture());
-		assertThat(photoCaptor.getValue().getChatId()).isEqualTo("7");
-	}
-
-	@Test
-	void echoesOnlyToTheSenderByDefault() throws TelegramApiException {
-		this.bot = new LoveboxBot(properties(EchoMode.SENDER, 7L, 8L), this.imageService, this.loveboxService,
-				this.telegramClient);
-		when(this.imageService.renderText("hello")).thenReturn(IMAGE);
-		when(this.loveboxService.sendImageMessage(IMAGE.dataUri())).thenReturn(SEND_RESULT);
-		when(this.telegramClient.execute(any(SendPhoto.class))).thenReturn(mock(Message.class));
-
-		this.bot.consume(updateWithMessage(textMessage(7L, "hello")));
-
-		ArgumentCaptor<SendPhoto> photoCaptor = ArgumentCaptor.forClass(SendPhoto.class);
-		verify(this.telegramClient).execute(photoCaptor.capture());
-		assertThat(photoCaptor.getValue().getChatId()).isEqualTo("7");
-	}
-
-	@Test
-	void echoesToEveryAllowedChatInAllAllowedMode() throws TelegramApiException {
-		this.bot = new LoveboxBot(properties(EchoMode.ALL_ALLOWED, 7L, 8L), this.imageService, this.loveboxService,
-				this.telegramClient);
-		when(this.imageService.renderText("hello")).thenReturn(IMAGE);
-		when(this.loveboxService.sendImageMessage(IMAGE.dataUri())).thenReturn(SEND_RESULT);
-		when(this.telegramClient.execute(any(SendPhoto.class))).thenReturn(mock(Message.class));
-
-		this.bot.consume(updateWithMessage(textMessage(7L, "hello")));
-
-		ArgumentCaptor<SendPhoto> photoCaptor = ArgumentCaptor.forClass(SendPhoto.class);
-		verify(this.telegramClient, times(2)).execute(photoCaptor.capture());
-		assertThat(photoCaptor.getAllValues()).extracting(SendPhoto::getChatId).containsExactlyInAnyOrder("7", "8");
+		assertThat(capturePhoto().getChatId()).isEqualTo("7");
 	}
 
 	@Test
@@ -163,15 +158,39 @@ class LoveboxBotTests {
 	void consumeSendsTextMessageAsImageAndEchoesIt() throws TelegramApiException {
 		when(this.imageService.renderText("hello")).thenReturn(IMAGE);
 		when(this.loveboxService.sendImageMessage(IMAGE.dataUri())).thenReturn(SEND_RESULT);
-		Message sentMessage = mock(Message.class);
-		when(this.telegramClient.execute(any(SendPhoto.class))).thenReturn(sentMessage);
+		stubEcho(42);
 
 		this.bot.consume(updateWithMessage(textMessage(7L, "hello")));
 
-		ArgumentCaptor<SendPhoto> photoCaptor = ArgumentCaptor.forClass(SendPhoto.class);
-		verify(this.telegramClient).execute(photoCaptor.capture());
-		assertThat(photoCaptor.getValue().getChatId()).isEqualTo("7");
-		assertThat(photoCaptor.getValue().getCaption()).contains("hello").contains("[sending]");
+		SendPhoto photo = capturePhoto();
+		assertThat(photo.getChatId()).isEqualTo("7");
+		assertThat(photo.getCaption()).contains("hello").contains("[sending]");
+	}
+
+	@Test
+	void echoesOnlyToTheSenderByDefault() throws TelegramApiException {
+		this.bot = botWith(properties(EchoMode.SENDER, 7L, 8L));
+		when(this.imageService.renderText("hello")).thenReturn(IMAGE);
+		when(this.loveboxService.sendImageMessage(IMAGE.dataUri())).thenReturn(SEND_RESULT);
+		stubEcho(42);
+
+		this.bot.consume(updateWithMessage(textMessage(7L, "hello")));
+
+		assertThat(capturePhoto().getChatId()).isEqualTo("7");
+	}
+
+	@Test
+	void echoesToEveryAllowedChatInAllAllowedMode() throws TelegramApiException {
+		this.bot = botWith(properties(EchoMode.ALL_ALLOWED, 7L, 8L));
+		when(this.imageService.renderText("hello")).thenReturn(IMAGE);
+		when(this.loveboxService.sendImageMessage(IMAGE.dataUri())).thenReturn(SEND_RESULT);
+		stubEcho(42);
+
+		this.bot.consume(updateWithMessage(textMessage(7L, "hello")));
+
+		ArgumentCaptor<SendPhoto> captor = ArgumentCaptor.forClass(SendPhoto.class);
+		verify(this.telegramClient, times(2)).execute(captor.capture());
+		assertThat(captor.getAllValues()).extracting(SendPhoto::getChatId).containsExactlyInAnyOrder("7", "8");
 	}
 
 	@Test
@@ -184,9 +203,7 @@ class LoveboxBotTests {
 
 		this.bot.consume(updateWithMessage(message));
 
-		ArgumentCaptor<SendMessage> messageCaptor = ArgumentCaptor.forClass(SendMessage.class);
-		verify(this.telegramClient).execute(messageCaptor.capture());
-		assertThat(messageCaptor.getValue().getText()).contains("text messages and photos");
+		assertThat(captureText().getText()).contains("text messages and photos");
 		verifyNoInteractions(this.loveboxService);
 	}
 
@@ -197,9 +214,7 @@ class LoveboxBotTests {
 
 		this.bot.consume(updateWithMessage(textMessage(7L, "boom")));
 
-		ArgumentCaptor<SendMessage> messageCaptor = ArgumentCaptor.forClass(SendMessage.class);
-		verify(this.telegramClient).execute(messageCaptor.capture());
-		assertThat(messageCaptor.getValue().getText()).isEqualTo("That message is too long to show on the Lovebox.");
+		assertThat(captureText().getText()).isEqualTo("That message is too long to show on the Lovebox.");
 		verifyNoInteractions(this.loveboxService);
 	}
 
@@ -209,9 +224,7 @@ class LoveboxBotTests {
 
 		this.bot.consume(updateWithMessage(textMessage(7L, "boom")));
 
-		ArgumentCaptor<SendMessage> messageCaptor = ArgumentCaptor.forClass(SendMessage.class);
-		verify(this.telegramClient).execute(messageCaptor.capture());
-		assertThat(messageCaptor.getValue().getText()).contains("could not process");
+		assertThat(captureText().getText()).contains("could not process");
 	}
 
 	@Test
@@ -221,86 +234,126 @@ class LoveboxBotTests {
 
 		this.bot.consume(updateWithMessage(textMessage(7L, "hello")));
 
-		ArgumentCaptor<SendMessage> messageCaptor = ArgumentCaptor.forClass(SendMessage.class);
-		verify(this.telegramClient).execute(messageCaptor.capture());
-		assertThat(messageCaptor.getValue().getText()).contains("could not process");
+		assertThat(captureText().getText()).contains("could not process");
 	}
 
 	@Test
-	void readMessageBoxUpdatesCaptionOnStatusChange() throws TelegramApiException {
+	void updateDeliveryStatusesRewritesTheCaptionOnStatusChange() throws TelegramApiException {
 		when(this.imageService.renderText("hello")).thenReturn(IMAGE);
 		when(this.loveboxService.sendImageMessage(IMAGE.dataUri())).thenReturn(SEND_RESULT);
-		Message sentMessage = mock(Message.class);
-		when(sentMessage.getCaption()).thenReturn("Message: \"hello\" \nStatus: [sending].\nExecuted: now");
-		when(sentMessage.getChatId()).thenReturn(7L);
-		when(sentMessage.getMessageId()).thenReturn(42);
-		when(this.telegramClient.execute(any(SendPhoto.class))).thenReturn(sentMessage);
+		stubEcho(42);
 		this.bot.consume(updateWithMessage(textMessage(7L, "hello")));
 
 		when(this.loveboxService.getMessages()).thenReturn(List.of(new MessageStatus("message-1", "read")));
-		this.bot.readMessageBox();
-		this.bot.readMessageBox();
+		this.bot.updateDeliveryStatuses();
+		this.bot.updateDeliveryStatuses();
 
-		ArgumentCaptor<EditMessageCaption> editCaptor = ArgumentCaptor.forClass(EditMessageCaption.class);
-		// Only the first poll sees a status transition; the second is a no-op.
-		verify(this.telegramClient).execute(editCaptor.capture());
-		assertThat(editCaptor.getValue().getCaption()).contains("[read]");
-		assertThat(editCaptor.getValue().getMessageId()).isEqualTo(42);
+		EditMessageCaption edit = captureEdit();
+		assertThat(edit.getCaption()).contains("[read]").contains("hello");
+		assertThat(edit.getMessageId()).isEqualTo(42);
+		assertThat(edit.getChatId()).isEqualTo("7");
 	}
 
 	@Test
-	void readMessageBoxSkipsCaptionUpdateWhenCaptionIsMissing() throws TelegramApiException {
+	void neverRewritesSquareBracketsInsideTheSendersOwnText() throws TelegramApiException {
+		when(this.imageService.renderText("meeting [today]. bring cake")).thenReturn(IMAGE);
+		when(this.loveboxService.sendImageMessage(IMAGE.dataUri())).thenReturn(SEND_RESULT);
+		stubEcho(42);
+		this.bot.consume(updateWithMessage(textMessage(7L, "meeting [today]. bring cake")));
+
+		when(this.loveboxService.getMessages()).thenReturn(List.of(new MessageStatus("message-1", "read")));
+		this.bot.updateDeliveryStatuses();
+
+		assertThat(captureEdit().getCaption()).contains("meeting [today]. bring cake").contains("[read]");
+	}
+
+	@Test
+	void survivesRegularExpressionMetacharactersInTheSendersText() throws TelegramApiException {
+		String tricky = "that costs $1 \\ [x].";
+		when(this.imageService.renderText(tricky)).thenReturn(IMAGE);
+		when(this.loveboxService.sendImageMessage(IMAGE.dataUri())).thenReturn(SEND_RESULT);
+		stubEcho(42);
+		this.bot.consume(updateWithMessage(textMessage(7L, tricky)));
+
+		when(this.loveboxService.getMessages()).thenReturn(List.of(new MessageStatus("message-1", "read")));
+		this.bot.updateDeliveryStatuses();
+
+		assertThat(captureEdit().getCaption()).contains(tricky);
+	}
+
+	@Test
+	void keepsCaptionsWithinTheTelegramLimitForVeryLongMessages() throws TelegramApiException {
+		String longText = "love ".repeat(800).strip();
+		when(this.imageService.renderText(longText)).thenReturn(IMAGE);
+		when(this.loveboxService.sendImageMessage(IMAGE.dataUri())).thenReturn(SEND_RESULT);
+		stubEcho(42);
+
+		this.bot.consume(updateWithMessage(textMessage(7L, longText)));
+
+		assertThat(capturePhoto().getCaption()).hasSizeLessThanOrEqualTo(CaptionContent.TELEGRAM_CAPTION_LIMIT);
+	}
+
+	@Test
+	void correctsTheCaptionWhenTheStatusMovedOnBeforeTheEchoWasRegistered() throws TelegramApiException {
 		when(this.imageService.renderText("hello")).thenReturn(IMAGE);
 		when(this.loveboxService.sendImageMessage(IMAGE.dataUri())).thenReturn(SEND_RESULT);
 		Message sentMessage = mock(Message.class);
-		when(sentMessage.getCaption()).thenReturn(null);
-		when(this.telegramClient.execute(any(SendPhoto.class))).thenReturn(sentMessage);
+		lenient().when(sentMessage.getMessageId()).thenReturn(42);
+		// The poll observes "read" while the echo is still in flight, which used to
+		// consume the only transition and leave the caption stuck at "sending".
+		when(this.telegramClient.execute(any(SendPhoto.class))).thenAnswer(invocation -> {
+			when(this.loveboxService.getMessages()).thenReturn(List.of(new MessageStatus("message-1", "read")));
+			this.bot.updateDeliveryStatuses();
+			return sentMessage;
+		});
+
 		this.bot.consume(updateWithMessage(textMessage(7L, "hello")));
 
-		when(this.loveboxService.getMessages()).thenReturn(List.of(new MessageStatus("message-1", "read")));
-		this.bot.readMessageBox();
-
-		verify(this.telegramClient, never()).execute(any(EditMessageCaption.class));
+		assertThat(captureEdit().getCaption()).contains("[read]");
 	}
 
 	@Test
-	void receiveWaterfallOfHeartsNotifiesKnownChatsAndAcknowledges() throws TelegramApiException {
-		when(this.imageService.renderText("hello")).thenReturn(IMAGE);
-		when(this.loveboxService.sendImageMessage(IMAGE.dataUri())).thenReturn(SEND_RESULT);
-		when(this.telegramClient.execute(any(SendPhoto.class))).thenReturn(mock(Message.class));
-		this.bot.consume(updateWithMessage(textMessage(7L, "hello")));
-
+	void announceWaterfallOfHeartsNotifiesAllowedChatsAndAcknowledges() throws TelegramApiException {
 		when(this.loveboxService.pendingHeart()).thenReturn("heart-1");
-		this.bot.receiveWaterfallOfHearts();
 
-		ArgumentCaptor<SendMessage> messageCaptor = ArgumentCaptor.forClass(SendMessage.class);
-		verify(this.telegramClient).execute(messageCaptor.capture());
-		assertThat(messageCaptor.getValue().getChatId()).isEqualTo("7");
-		assertThat(messageCaptor.getValue().getText()).contains("waterfall of hearts");
+		this.bot.announceWaterfallOfHearts();
+
+		SendMessage notification = captureText();
+		assertThat(notification.getChatId()).isEqualTo("7");
+		assertThat(notification.getText()).contains("waterfall of hearts");
 		verify(this.loveboxService).acknowledgeHeart("heart-1");
 	}
 
 	@Test
-	void receiveWaterfallOfHeartsKeepsTheHeartPendingWhenTelegramFails() throws TelegramApiException {
-		when(this.imageService.renderText("hello")).thenReturn(IMAGE);
-		when(this.loveboxService.sendImageMessage(IMAGE.dataUri())).thenReturn(SEND_RESULT);
-		when(this.telegramClient.execute(any(SendPhoto.class))).thenReturn(mock(Message.class));
-		this.bot.consume(updateWithMessage(textMessage(7L, "hello")));
+	void announceWaterfallOfHeartsKeepsTheHeartPendingWhenTelegramFails() throws TelegramApiException {
+		when(this.loveboxService.pendingHeart()).thenReturn("heart-1");
 		when(this.telegramClient.execute(any(SendMessage.class))).thenThrow(new TelegramApiException("offline"));
 
-		when(this.loveboxService.pendingHeart()).thenReturn("heart-1");
-		this.bot.receiveWaterfallOfHearts();
+		this.bot.announceWaterfallOfHearts();
 
 		verify(this.loveboxService, never()).acknowledgeHeart(any());
 	}
 
 	@Test
-	void receiveWaterfallOfHeartsDoesNothingWithoutPendingHearts() {
+	void announceWaterfallOfHeartsDoesNothingWithoutPendingHearts() {
 		when(this.loveboxService.pendingHeart()).thenReturn(null);
 
-		this.bot.receiveWaterfallOfHearts();
+		this.bot.announceWaterfallOfHearts();
 
 		verifyNoInteractions(this.telegramClient);
+	}
+
+	@Test
+	void pollKeepsGoingWhenAStepFails() {
+		when(this.loveboxService.initializeIfNeeded()).thenThrow(new IllegalStateException("API down"));
+		when(this.loveboxService.getMessages()).thenThrow(new IllegalStateException("API down"));
+		when(this.loveboxService.pendingHeart()).thenThrow(new IllegalStateException("API down"));
+
+		this.bot.pollLovebox();
+
+		verify(this.loveboxService).initializeIfNeeded();
+		verify(this.loveboxService).getMessages();
+		verify(this.loveboxService).pendingHeart();
 	}
 
 }
