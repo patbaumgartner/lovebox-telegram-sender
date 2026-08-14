@@ -3,6 +3,7 @@ package com.patbaumgartner.lovebox.telegram.sender.lovebox;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -212,8 +213,27 @@ public class LoveboxService {
 		JsonNode status = sendPixNote.path("statusList").path(0);
 
 		return new SendResult(requireString(sendPixNote, "_id", "sendPixNote"),
-				Instant.parse(requireString(status, "date", "sendPixNote.statusList[0]")),
+				acceptedAt(requireString(status, "date", "sendPixNote.statusList[0]")),
 				requireString(status, "label", "sendPixNote.statusList[0]"));
+	}
+
+	/**
+	 * Reads the acceptance timestamp of a message the box already has.
+	 * <p>
+	 * Falls back to the current time instead of failing: the image is on its way to the
+	 * device by the time this is parsed, so letting a changed date format in the
+	 * undocumented API turn a successful send into an error would tell the sender their
+	 * message was lost and invite them to send it a second time.
+	 */
+	private static Instant acceptedAt(String date) {
+		try {
+			return Instant.parse(date);
+		}
+		catch (DateTimeParseException ex) {
+			log.warn("Lovebox accepted the message but reported an unreadable date \"{}\"; using the current time",
+					date);
+			return Instant.now();
+		}
 	}
 
 	/**
@@ -275,26 +295,32 @@ public class LoveboxService {
 	/**
 	 * Executes a GraphQL operation and returns its {@code data} object, refreshing the
 	 * bearer token and retrying once when the API answers {@code 401 Unauthorized}.
+	 * <p>
+	 * The token is resolved before the request so a {@code 401} from the login itself is
+	 * not mistaken for an expired token and retried pointlessly, and only the token that
+	 * was actually rejected is discarded - a late {@code 401} from a request that started
+	 * before a concurrent refresh must not throw away the fresh token.
 	 */
 	private JsonNode graphql(String operationName, Map<String, Object> variables, String query) {
 		GraphqlRequestBody request = new GraphqlRequestBody(operationName, variables, query);
+		CachedToken token = currentToken();
 		String body;
 		try {
-			body = post(request);
+			body = post(token, request);
 		}
 		catch (RestClientResponseException ex) {
 			if (ex.getStatusCode().value() != HttpStatus.UNAUTHORIZED.value()) {
 				throw ex;
 			}
 			log.debug("Lovebox API replied 401 for {}; refreshing token and retrying once", operationName);
-			invalidateToken();
-			body = post(request);
+			invalidate(token);
+			body = post(currentToken(), request);
 		}
 		return parseData(body, operationName);
 	}
 
-	private String post(GraphqlRequestBody request) {
-		ResponseEntity<String> response = this.restClient.graphql(authorization(), request);
+	private String post(CachedToken token, GraphqlRequestBody request) {
+		ResponseEntity<String> response = this.restClient.graphql("Bearer " + token.token(), request);
 		log.debug("GraphQL {} response status: {}", request.operationName(), response.getStatusCode());
 		return response.getBody();
 	}
@@ -350,7 +376,7 @@ public class LoveboxService {
 		return String.join("; ", messages);
 	}
 
-	private String authorization() {
+	private CachedToken currentToken() {
 		CachedToken current = this.cachedToken;
 		if (current == null || current.isExpired()) {
 			synchronized (this.tokenLock) {
@@ -361,12 +387,14 @@ public class LoveboxService {
 				}
 			}
 		}
-		return "Bearer " + current.token();
+		return current;
 	}
 
-	private void invalidateToken() {
+	private void invalidate(CachedToken rejected) {
 		synchronized (this.tokenLock) {
-			this.cachedToken = null;
+			if (this.cachedToken == rejected) {
+				this.cachedToken = null;
+			}
 		}
 	}
 
