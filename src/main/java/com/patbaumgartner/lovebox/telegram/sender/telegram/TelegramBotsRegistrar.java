@@ -8,6 +8,7 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.Ordered;
 
+import org.telegram.telegrambots.longpolling.BotSession;
 import org.telegram.telegrambots.longpolling.TelegramBotsLongPollingApplication;
 import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
@@ -23,6 +24,10 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
  * type and invoked directly by {@code SpringApplication}, which behaves identically on
  * the JVM and in the native image.
  * <p>
+ * Registering here also means the starter's {@code @AfterBotRegistration} callbacks never
+ * run - they are invoked by {@code TelegramBotInitializer}, which this application
+ * deliberately neuters - so the outcome of the registration is logged from here instead.
+ * <p>
  * Runs last so that polling only starts once the Lovebox account has been verified.
  */
 public class TelegramBotsRegistrar implements ApplicationRunner, Ordered {
@@ -33,18 +38,18 @@ public class TelegramBotsRegistrar implements ApplicationRunner, Ordered {
 
 	private final List<SpringLongPollingBot> bots;
 
-	private final boolean enabled;
+	private final LoveboxBotProperties botProperties;
 
 	public TelegramBotsRegistrar(TelegramBotsLongPollingApplication telegramBotsApplication,
-			List<SpringLongPollingBot> bots, boolean enabled) {
+			List<SpringLongPollingBot> bots, LoveboxBotProperties botProperties) {
 		this.telegramBotsApplication = telegramBotsApplication;
 		this.bots = bots;
-		this.enabled = enabled;
+		this.botProperties = botProperties;
 	}
 
 	@Override
 	public void run(ApplicationArguments args) {
-		if (!this.enabled) {
+		if (!this.botProperties.enabled()) {
 			log.info("Telegram long-polling is disabled (bot.enabled=false); no bots registered");
 			return;
 		}
@@ -53,13 +58,15 @@ public class TelegramBotsRegistrar implements ApplicationRunner, Ordered {
 					"No SpringLongPollingBot beans available; Telegram updates would be silently ignored");
 		}
 		for (SpringLongPollingBot bot : this.bots) {
+			BotSession session;
 			try {
-				this.telegramBotsApplication.registerBot(bot.getBotToken(), bot.getUpdatesConsumer());
+				session = this.telegramBotsApplication.registerBot(bot.getBotToken(), bot.getUpdatesConsumer());
 			}
 			catch (TelegramApiException ex) {
 				throw new IllegalStateException("Could not start Telegram long-polling", ex);
 			}
-			log.info("Telegram long-polling started for bot {}", bot.getClass().getSimpleName());
+			log.info("Telegram long-polling started for bot {} (username: {}, running: {})",
+					bot.getClass().getSimpleName(), this.botProperties.username(), session.isRunning());
 		}
 	}
 

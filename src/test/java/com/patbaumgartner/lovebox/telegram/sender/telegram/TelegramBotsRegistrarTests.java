@@ -1,12 +1,14 @@
 package com.patbaumgartner.lovebox.telegram.sender.telegram;
 
 import java.util.List;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import org.telegram.telegrambots.longpolling.BotSession;
 import org.telegram.telegrambots.longpolling.TelegramBotsLongPollingApplication;
 import org.telegram.telegrambots.longpolling.interfaces.LongPollingUpdateConsumer;
 import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot;
@@ -31,12 +33,21 @@ class TelegramBotsRegistrarTests {
 	@Mock
 	private LongPollingUpdateConsumer updatesConsumer;
 
+	@Mock
+	private BotSession botSession;
+
+	private static LoveboxBotProperties properties(boolean enabled) {
+		return enabled ? new LoveboxBotProperties(true, "lovebox_bot", "token", Set.of(7L), EchoMode.SENDER)
+				: new LoveboxBotProperties(false, "lovebox_bot", null, null, null);
+	}
+
 	@Test
 	void registersAllBots() throws TelegramApiException {
 		when(this.bot.getBotToken()).thenReturn("token");
 		when(this.bot.getUpdatesConsumer()).thenReturn(this.updatesConsumer);
+		when(this.telegramBotsApplication.registerBot("token", this.updatesConsumer)).thenReturn(this.botSession);
 		TelegramBotsRegistrar registrar = new TelegramBotsRegistrar(this.telegramBotsApplication, List.of(this.bot),
-				true);
+				properties(true));
 
 		registrar.run(null);
 
@@ -46,7 +57,7 @@ class TelegramBotsRegistrarTests {
 	@Test
 	void skipsRegistrationWhenDisabled() {
 		TelegramBotsRegistrar registrar = new TelegramBotsRegistrar(this.telegramBotsApplication, List.of(this.bot),
-				false);
+				properties(false));
 
 		registrar.run(null);
 
@@ -55,7 +66,8 @@ class TelegramBotsRegistrarTests {
 
 	@Test
 	void failsWhenNoBotsAreAvailable() {
-		TelegramBotsRegistrar registrar = new TelegramBotsRegistrar(this.telegramBotsApplication, List.of(), true);
+		TelegramBotsRegistrar registrar = new TelegramBotsRegistrar(this.telegramBotsApplication, List.of(),
+				properties(true));
 
 		assertThatIllegalStateException().isThrownBy(() -> registrar.run(null))
 			.withMessageContaining("No SpringLongPollingBot beans");
@@ -68,7 +80,7 @@ class TelegramBotsRegistrarTests {
 		when(this.telegramBotsApplication.registerBot(anyString(), any(LongPollingUpdateConsumer.class)))
 			.thenThrow(new TelegramApiException("boom"));
 		TelegramBotsRegistrar registrar = new TelegramBotsRegistrar(this.telegramBotsApplication, List.of(this.bot),
-				true);
+				properties(true));
 
 		assertThatIllegalStateException().isThrownBy(() -> registrar.run(null))
 			.withMessageContaining("Could not start Telegram long-polling")
