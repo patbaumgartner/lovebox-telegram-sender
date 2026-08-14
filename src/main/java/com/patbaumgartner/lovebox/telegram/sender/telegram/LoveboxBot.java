@@ -1,9 +1,15 @@
 package com.patbaumgartner.lovebox.telegram.sender.telegram;
 
 import java.io.ByteArrayInputStream;
-import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
+import java.util.Set;
 
 import com.patbaumgartner.lovebox.telegram.sender.image.ImageService;
 import com.patbaumgartner.lovebox.telegram.sender.image.LoveboxImage;
@@ -16,9 +22,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import org.telegram.telegrambots.longpolling.BotSession;
 import org.telegram.telegrambots.longpolling.interfaces.LongPollingUpdateConsumer;
-import org.telegram.telegrambots.longpolling.starter.AfterBotRegistration;
 import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot;
 import org.telegram.telegrambots.longpolling.util.DefaultLongPollingUpdateConsumer;
 import org.telegram.telegrambots.meta.api.methods.GetFile;
@@ -63,6 +67,10 @@ public class LoveboxBot extends DefaultLongPollingUpdateConsumer implements Spri
 
 	private final PendingDeliveries pendingDeliveries = new PendingDeliveries();
 
+	private final Set<Long> heartRecipients = new HashSet<>();
+
+	private String announcedHeartId;
+
 	public LoveboxBot(LoveboxBotProperties botProperties, ImageService imageService, LoveboxService loveboxService,
 			TelegramClient telegramClient) {
 		this.botProperties = botProperties;
@@ -100,25 +108,35 @@ public class LoveboxBot extends DefaultLongPollingUpdateConsumer implements Spri
 	 */
 	public void updateDeliveryStatuses() {
 		for (CaptionEdit edit : this.pendingDeliveries.apply(this.loveboxService.getMessages())) {
-			editCaption(edit.echo(), edit.caption());
+			applyCaptionEdit(edit);
 		}
 	}
 
 	/**
 	 * Announces a pending "waterfall of hearts" to the authorised chats and acknowledges
-	 * it only once it has been delivered - the API reports each heart exactly once, so
-	 * acknowledging first would silently discard the event on any Telegram failure.
+	 * it only once every one of them has been notified - the API reports each heart
+	 * exactly once, so acknowledging earlier would silently discard the event for the
+	 * chats that were not reached.
+	 * <p>
+	 * Which chats already saw the current heart is remembered, so a poll that has to
+	 * repeat the announcement (because another chat or the acknowledgement itself failed)
+	 * does not notify anyone twice.
 	 */
 	public void announceWaterfallOfHearts() {
 		String heartId = this.loveboxService.pendingHeart();
 		if (heartId == null) {
 			return;
 		}
-		boolean delivered = false;
-		for (long chatId : this.botProperties.allowedChatIds()) {
-			delivered |= sendTextMessage(chatId, HEARTS_MESSAGE);
+		if (!heartId.equals(this.announcedHeartId)) {
+			this.announcedHeartId = heartId;
+			this.heartRecipients.clear();
 		}
-		if (delivered) {
+		for (long chatId : this.botProperties.allowedChatIds()) {
+			if (!this.heartRecipients.contains(chatId) && sendTextMessage(chatId, HEARTS_MESSAGE)) {
+				this.heartRecipients.add(chatId);
+			}
+		}
+		if (this.heartRecipients.containsAll(this.botProperties.allowedChatIds())) {
 			this.loveboxService.acknowledgeHeart(heartId);
 		}
 	}
@@ -179,8 +197,13 @@ public class LoveboxBot extends DefaultLongPollingUpdateConsumer implements Spri
 			return;
 		}
 		TelegramEcho echo = new TelegramEcho(chatId, sentMessage.getMessageId());
-		Optional<String> correction = this.pendingDeliveries.register(result.messageId(), echo, result.status());
-		correction.ifPresent(caption -> editCaption(echo, caption));
+		this.pendingDeliveries.register(result.messageId(), echo, result.status()).ifPresent(this::applyCaptionEdit);
+	}
+
+	private void applyCaptionEdit(CaptionEdit edit) {
+		if (editCaption(edit.echo(), edit.caption())) {
+			this.pendingDeliveries.markDisplayed(edit);
+		}
 	}
 
 	/**
@@ -190,17 +213,12 @@ public class LoveboxBot extends DefaultLongPollingUpdateConsumer implements Spri
 	 */
 	private LoveboxImage renderImage(Message message, String caption) {
 		if (message.hasPhoto()) {
-			File photo = downloadPhoto(message);
+			Path photo = downloadPhoto(message);
 			try {
-				return this.imageService.renderPhoto(photo, caption);
+				return this.imageService.renderPhoto(photo.toFile(), caption);
 			}
 			finally {
-				// TelegramClient.downloadFile writes to File.createTempFile and leaves
-				// cleanup to the caller, so an undeleted photo per message would
-				// slowly fill the container disk.
-				if (!photo.delete()) {
-					log.warn("Could not delete the downloaded photo {}", photo);
-				}
+				delete(photo);
 			}
 		}
 		if (message.hasText()) {
@@ -209,20 +227,51 @@ public class LoveboxBot extends DefaultLongPollingUpdateConsumer implements Spri
 		throw new UnsupportedMessageException("I can only put text messages and photos on the Lovebox.");
 	}
 
-	private File downloadPhoto(Message message) {
+	/**
+	 * Downloads the largest available size of a photo into a temporary file this class
+	 * owns.
+	 * <p>
+	 * Deliberately not {@code TelegramClient.downloadFile}: that creates the temporary
+	 * file itself and, when the copy fails halfway, throws without deleting it and
+	 * without handing the caller a reference - one orphaned file per failed download,
+	 * slowly filling the container disk. Streaming into a file created here keeps cleanup
+	 * possible on every path.
+	 */
+	private Path downloadPhoto(Message message) {
 		List<PhotoSize> photoSizes = message.getPhoto();
 		PhotoSize photoSize = photoSizes.get(photoSizes.size() - 1);
 
-		GetFile getFile = new GetFile(photoSize.getFileId());
+		Path target = createTempFile();
 		try {
-			String filePath = this.telegramClient.execute(getFile).getFilePath();
-			File file = this.telegramClient.downloadFile(filePath);
+			String filePath = this.telegramClient.execute(new GetFile(photoSize.getFileId())).getFilePath();
+			try (InputStream photo = this.telegramClient.downloadFileAsStream(filePath)) {
+				Files.copy(photo, target, StandardCopyOption.REPLACE_EXISTING);
+			}
 			log.debug("Downloaded photo \"{}\" from {}", photoSize.getFileId(), filePath);
-			return file;
+			return target;
 		}
-		catch (TelegramApiException | RuntimeException ex) {
+		catch (IOException | TelegramApiException | RuntimeException ex) {
+			delete(target);
 			throw new IllegalStateException(
 					"Could not download photo \"%s\" from Telegram".formatted(photoSize.getFileId()), ex);
+		}
+	}
+
+	private static Path createTempFile() {
+		try {
+			return Files.createTempFile("lovebox-photo", null);
+		}
+		catch (IOException ex) {
+			throw new UncheckedIOException(ex);
+		}
+	}
+
+	private static void delete(Path file) {
+		try {
+			Files.deleteIfExists(file);
+		}
+		catch (IOException ex) {
+			log.warn("Could not delete the downloaded photo {}: {}", file, ex.getMessage());
 		}
 	}
 
@@ -258,7 +307,7 @@ public class LoveboxBot extends DefaultLongPollingUpdateConsumer implements Spri
 		}
 	}
 
-	protected void editCaption(TelegramEcho echo, String caption) {
+	protected boolean editCaption(TelegramEcho echo, String caption) {
 		EditMessageCaption editMessage = EditMessageCaption.builder()
 			.messageId(echo.messageId())
 			.chatId(String.valueOf(echo.chatId()))
@@ -267,17 +316,13 @@ public class LoveboxBot extends DefaultLongPollingUpdateConsumer implements Spri
 		try {
 			this.telegramClient.execute(editMessage);
 			log.debug("Updated the caption of message {} in chat {}", echo.messageId(), echo.chatId());
+			return true;
 		}
 		catch (TelegramApiException | RuntimeException ex) {
 			log.error("Failed to update the caption of message {} in chat {} due to error: {}", echo.messageId(),
 					echo.chatId(), ex.getMessage(), ex);
+			return false;
 		}
-	}
-
-	@AfterBotRegistration
-	public void afterRegistration(BotSession botSession) {
-		log.info("Registered TelegramBot with Username: {} running state is: {}", this.botProperties.username(),
-				botSession.isRunning());
 	}
 
 	@Override
