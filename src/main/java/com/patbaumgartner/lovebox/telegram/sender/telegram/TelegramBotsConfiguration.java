@@ -75,7 +75,7 @@ public class TelegramBotsConfiguration {
 	@Bean
 	public TelegramBotsRegistrar telegramBotsRegistrar(TelegramBotsLongPollingApplication telegramBotsApplication,
 			List<SpringLongPollingBot> bots, LoveboxBotProperties botProperties) {
-		return new TelegramBotsRegistrar(telegramBotsApplication, bots, botProperties.enabled());
+		return new TelegramBotsRegistrar(telegramBotsApplication, bots, botProperties);
 	}
 
 }
