@@ -15,9 +15,10 @@ import org.springframework.aot.hint.TypeReference;
  * The native AWT libraries (libawt, libjavajpeg, libmlib_image) resolve Java classes,
  * methods and fields through JNI at runtime. Any lookup missing from the native-image
  * configuration fails with errors such as
- * {@code NoSuchFieldError: javax.imageio.plugins.jpeg.JPEGQTable.qTable} or
+ * {@code NoSuchFieldError: javax.imageio.plugins.jpeg.JPEGQTable.qTable},
  * {@code NoSuchFieldError: sun.awt.image.ByteComponentRaster.data} — the latter only once
- * a real photo is decoded, so the image starts fine and breaks on first use. Exactly
+ * a real photo is decoded, so the image starts fine and breaks on first use — or
+ * {@code NoSuchMethodError: JPEGImageWriter.writeOutputData} on the encode side. Exactly
  * which lookups are pre-registered varies between GraalVM releases, so this list
  * registers every type the pipeline is known to touch rather than only the ones that
  * happen to fail with the current builder.
@@ -29,6 +30,9 @@ public class AwtRuntimeHints implements RuntimeHintsRegistrar {
 			// resolves methods on the reader/stream and fields of the table classes.
 			"com.sun.imageio.plugins.jpeg.JPEGImageReader", "javax.imageio.stream.ImageInputStream",
 			"javax.imageio.plugins.jpeg.JPEGQTable", "javax.imageio.plugins.jpeg.JPEGHuffmanTable",
+			// ImageIO JPEG encoding (libjavajpeg): JPEGImageWriter.initWriterIDs resolves
+			// methods on the writer/output stream the same way the reader side does.
+			"com.sun.imageio.plugins.jpeg.JPEGImageWriter", "javax.imageio.stream.ImageOutputStream",
 			// Rasters (libawt/libmlib_image access their fields, e.g.
 			// ByteComponentRaster.data, directly through JNI)
 			"sun.awt.image.ByteBandedRaster", "sun.awt.image.ByteComponentRaster",
