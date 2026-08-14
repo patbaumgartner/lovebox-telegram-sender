@@ -1,10 +1,10 @@
 package com.patbaumgartner.lovebox.telegram.sender.telegram;
 
 import java.util.List;
+import java.util.Objects;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.env.Environment;
 
 import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
 import org.telegram.telegrambots.longpolling.TelegramBotsLongPollingApplication;
@@ -43,7 +43,7 @@ public class TelegramBotsConfiguration {
 	 */
 	@Bean
 	public TelegramClient telegramClient(LoveboxBotProperties botProperties) {
-		return new OkHttpTelegramClient(botProperties.token());
+		return new OkHttpTelegramClient(Objects.requireNonNullElse(botProperties.token(), ""));
 	}
 
 	/**
@@ -74,9 +74,8 @@ public class TelegramBotsConfiguration {
 
 	@Bean
 	public TelegramBotsRegistrar telegramBotsRegistrar(TelegramBotsLongPollingApplication telegramBotsApplication,
-			List<SpringLongPollingBot> bots, Environment environment) {
-		return new TelegramBotsRegistrar(telegramBotsApplication, bots,
-				environment.getProperty("lovebox.enabled", Boolean.class, true));
+			List<SpringLongPollingBot> bots, LoveboxBotProperties botProperties) {
+		return new TelegramBotsRegistrar(telegramBotsApplication, bots, botProperties.enabled());
 	}
 
 }

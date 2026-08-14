@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.core.Ordered;
 
 import org.telegram.telegrambots.longpolling.TelegramBotsLongPollingApplication;
 import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot;
@@ -21,8 +22,10 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
  * incoming Telegram message. {@code ApplicationRunner} beans are looked up by concrete
  * type and invoked directly by {@code SpringApplication}, which behaves identically on
  * the JVM and in the native image.
+ * <p>
+ * Runs last so that polling only starts once the Lovebox account has been verified.
  */
-public class TelegramBotsRegistrar implements ApplicationRunner {
+public class TelegramBotsRegistrar implements ApplicationRunner, Ordered {
 
 	private static final Logger log = LoggerFactory.getLogger(TelegramBotsRegistrar.class);
 
@@ -42,7 +45,7 @@ public class TelegramBotsRegistrar implements ApplicationRunner {
 	@Override
 	public void run(ApplicationArguments args) {
 		if (!this.enabled) {
-			log.info("Telegram long-polling is disabled (lovebox.enabled=false); no bots registered");
+			log.info("Telegram long-polling is disabled (bot.enabled=false); no bots registered");
 			return;
 		}
 		if (this.bots.isEmpty()) {
@@ -58,6 +61,11 @@ public class TelegramBotsRegistrar implements ApplicationRunner {
 			}
 			log.info("Telegram long-polling started for bot {}", bot.getClass().getSimpleName());
 		}
+	}
+
+	@Override
+	public int getOrder() {
+		return Ordered.LOWEST_PRECEDENCE;
 	}
 
 }

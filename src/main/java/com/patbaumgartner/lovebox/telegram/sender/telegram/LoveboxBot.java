@@ -40,10 +40,14 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 /**
- * The Telegram bot bridging chats to the Lovebox: every text or photo message is rendered
- * as an image and sent to the box, the delivery status is polled and reflected back into
- * the Telegram message captions, and received "waterfalls of hearts" are announced to all
- * known chats.
+ * The Telegram bot bridging chats to the Lovebox: every text or photo message from an
+ * authorised chat is rendered as an image and sent to the box, the delivery status is
+ * polled and reflected back into the Telegram message captions, and received "waterfalls
+ * of hearts" are announced.
+ * <p>
+ * Only chats listed in {@code bot.allowed-chat-ids} are served. A Telegram bot accepts
+ * messages from anyone who knows its username, so without that check any stranger could
+ * print whatever they liked on a device standing in someone's home.
  * <p>
  * Updates are processed one at a time on the dedicated background thread provided by
  * {@link DefaultLongPollingUpdateConsumer}; Spring closes the consumer (and its executor)
@@ -66,8 +70,6 @@ public class LoveboxBot extends DefaultLongPollingUpdateConsumer implements Spri
 	private final LoveboxService loveboxService;
 
 	private final TelegramClient telegramClient;
-
-	private final Set<Long> chatIds = new ConcurrentSkipListSet<>();
 
 	private final ConcurrentHashMap<String, String> loveboxMessageStore = new ConcurrentHashMap<>();
 
@@ -122,7 +124,7 @@ public class LoveboxBot extends DefaultLongPollingUpdateConsumer implements Spri
 			return;
 		}
 		boolean delivered = false;
-		for (long chatId : this.chatIds) {
+		for (long chatId : this.botProperties.allowedChatIds()) {
 			delivered |= sendTextMessage(chatId, "You received a waterfall of hearts! ❤❤❤");
 		}
 		// Acknowledge only after the news reached a chat, otherwise a Telegram
@@ -139,25 +141,31 @@ public class LoveboxBot extends DefaultLongPollingUpdateConsumer implements Spri
 		}
 
 		Message message = update.getMessage();
+		long chatId = message.getChatId();
+		if (!this.botProperties.isAllowed(chatId)) {
+			log.warn("Refused a message from unauthorised chat {}", chatId);
+			sendTextMessage(chatId, "This bot is private. If it is yours, add this chat id to bot.allowed-chat-ids: %d"
+				.formatted(chatId));
+			return;
+		}
+
 		try {
 			handleMessage(message);
 		}
 		catch (UnsupportedMessageException ex) {
-			log.info("Rejected a message from chat {}: {}", message.getChatId(), ex.getMessage());
-			sendTextMessage(message.getChatId(), ex.getMessage());
+			log.info("Rejected a message from chat {}: {}", chatId, ex.getMessage());
+			sendTextMessage(chatId, ex.getMessage());
 		}
 		catch (RuntimeException | LinkageError ex) {
 			// LinkageError too: a missing native-image JNI/reflection registration
 			// surfaces as an Error, which would otherwise kill this consumer thread
 			// without a trace.
-			log.error("Failed to process message from chat {}: {}", message.getChatId(), ex.getMessage(), ex);
-			sendTextMessage(message.getChatId(), "Sorry, I could not process that message.");
+			log.error("Failed to process message from chat {}: {}", chatId, ex.getMessage(), ex);
+			sendTextMessage(chatId, "Sorry, I could not process that message.");
 		}
 	}
 
 	private void handleMessage(Message message) {
-		this.chatIds.add(message.getChatId());
-
 		// Suppress Telegram's "/start" command
 		String text = message.getText();
 		if (text != null && text.startsWith("/start")) {
@@ -170,8 +178,7 @@ public class LoveboxBot extends DefaultLongPollingUpdateConsumer implements Spri
 		SendResult result = this.loveboxService.sendImageMessage(image.dataUri());
 		this.loveboxMessageStore.put(result.messageId(), result.status());
 
-		// Echo the rendered image with its delivery status to every known chat
-		for (long chatId : this.chatIds) {
+		for (long chatId : this.botProperties.echoRecipients(message.getChatId())) {
 			Message sentMessage = sendPhotoMessage(chatId, caption, image, result);
 			if (sentMessage != null) {
 				this.telegramMessageStore.computeIfAbsent(result.messageId(), key -> new CopyOnWriteArrayList<>())
