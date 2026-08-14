@@ -26,7 +26,12 @@ environment running and what to look out for when submitting changes.
    ```
 
    Tip: set `lovebox.enabled=false` for a dry run that never calls the Lovebox API —
-   message sending is simulated, only Telegram is contacted.
+   message sending is simulated, only Telegram is contacted. Set `bot.enabled=false` to
+   skip Telegram as well.
+
+   The application validates its configuration at startup, so it will refuse to boot
+   until `bot.token`, `bot.allowed-chat-ids` and the Lovebox account settings are present
+   (or the corresponding `*.enabled` switch is `false`).
 
 ## Code Style
 
@@ -38,6 +43,10 @@ Format your changes before committing:
 ```
 
 CI validates formatting with `spring-javaformat:validate` and fails on violations.
+
+The project deliberately uses **no Lombok** and no annotation processor beyond Spring's
+configuration processor: loggers and constructors are written out, so the sources compile
+and navigate in any editor without extra plugins.
 
 ## Tests
 
@@ -53,10 +62,21 @@ anything reflective, keep these rules in mind (details in the class-level Javado
 
 - **No lambda `ApplicationListener`s** for startup work — they are not invoked in the
   native image. Use named `ApplicationRunner` beans (see `TelegramBotsRegistrar`).
+- **No `@Profile`-gated beans** for anything needed at runtime — profile conditions are
+  evaluated at build time under AOT, so the bean will not exist in the native image. Gate
+  on a runtime property instead (see `RenderSmokeRunner`).
 - **Register reflection/JNI/resource hints** for anything loaded reflectively
-  (see `TelegramBotsRuntimeHints`, `NativeHintsConfiguration`, `ApplicationRuntimeHints`).
+  (see `TelegramBotsRuntimeHints`, `AwtRuntimeHints`, `NativeHintsConfiguration`).
 - **Test natively when possible**: `./mvnw -Pnative spring-boot:build-image` builds the
-  container the same way CI does.
+  container the same way CI does, and
+
+  ```bash
+  docker run --rm -e LOVEBOX_ENABLED=false -e BOT_ENABLED=false \
+    -e RENDER_SMOKE_ENABLED=true patbaumgartner/lovebox-telegram-sender:latest
+  ```
+
+  exercises the whole render pipeline (JPEG JNI coding, emoji shaping) inside it. CI runs
+  exactly this before publishing.
 
 ## Commit Messages
 
