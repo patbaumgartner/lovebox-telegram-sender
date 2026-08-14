@@ -45,18 +45,28 @@ jobs:
         run: ./mvnw spring-javaformat:validate -ntp
 
       - name: Build, test & verify
-        run: ./mvnw clean verify -ntp -Dmaven.test.failure.ignore=true
+        run: ./mvnw clean verify -ntp
         env:
           MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
 
+      # Reporting only; Maven above decides whether the build passes.
       - name: Publish test results
         uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
         if: always()
+        continue-on-error: true
         with:
           name: "Test Results – Java ${{ env.JAVA_VERSION }}"
           path: "target/surefire-reports/*.xml,target/failsafe-reports/TEST-*.xml"
           reporter: java-junit
-          fail-on-error: true
+          fail-on-error: false
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: jacoco-coverage
+          path: target/site/jacoco/
+          if-no-files-found: warn
 
   # ── Docker: publish native image as snapshot + latest (main pushes only) ────
   # Runs only on direct pushes to main / manual dispatch (never on PRs or forks,
