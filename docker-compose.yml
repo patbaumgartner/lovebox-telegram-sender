@@ -3,6 +3,7 @@ services:
     image: patbaumgartner/lovebox-telegram-sender:${VERSION:-latest}
     container_name: lovebox-telegram-sender
     restart: unless-stopped
+    # Copy .env.example to .env and fill it in before starting.
     env_file:
       - ./.env
     environment:

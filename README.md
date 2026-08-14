@@ -13,8 +13,12 @@ A Telegram bot receives your **text messages** and **captioned photos**, renders
 images sized for the Lovebox display, and delivers them through the (undocumented)
 Lovebox mobile-app API. Delivery status updates (e.g. *sending* → *read*) are reflected
 back into the Telegram chat, and when your loved one spins the heart on the box, the bot
-announces the "waterfall of hearts" in the chat. Any other message type is answered with
-a friendly default image.
+announces the "waterfall of hearts" in the chat.
+
+The bot is **private**: it serves only the chats you list in `bot.allowed-chat-ids` and
+politely refuses everyone else. Anything it cannot put on the box — a sticker, a voice
+note, a message too long to stay readable — is answered in the chat and never reaches the
+device.
 
 Built with **Spring Boot 4** and compiled to a **GraalVM native image** — it idles at a
 few dozen MB of RAM, which makes it a perfect fit for a small home server or NAS
@@ -33,35 +37,27 @@ sequenceDiagram
 
     U->>T: text / photo message
     B->>T: long-polls updates
-    B->>I: render 1280x960 PNG
+    Note over B: reject chats outside bot.allowed-chat-ids
+    B->>I: wrap + size text, render 1280x960 PNG
     B->>L: sendPixNote (base64 image)
     L->>D: displays message 💌
     B->>T: echo image + status caption
-    loop every 20s
+    loop every 20s (fixed delay)
         B->>L: getMessages (delivery status)
         B->>T: update caption (sending → read)
         B->>L: getHeartsRain
         B->>T: "waterfall of hearts" notification
+        B->>L: setHeartsRain (only once delivered)
     end
 ```
 
 ## Quick Start (Docker)
 
-1. Create a `.env` file with your configuration (see
+1. Copy [.env.example](.env.example) to `.env` and fill it in (see
    [Configuration](#configuration) and [Obtaining your Lovebox IDs](#obtaining-your-lovebox-ids)):
 
    ```bash
-   # Lovebox account
-   LOVEBOX_ENABLED=true
-   LOVEBOX_EMAIL="me@email.com"
-   LOVEBOX_PASSWORD="mySecret"
-   # Lovebox device & box
-   LOVEBOX_SIGNATURE="Signature"
-   LOVEBOX_DEVICE_ID="42fab8322d8cec91"
-   LOVEBOX_BOX_ID="417a114e58e15a0214cf3612"
-   # Telegram bot
-   BOT_USERNAME="Lovebox_bot"
-   BOT_TOKEN="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
+   cp .env.example .env
    ```
 
 2. Start the container with the bundled [docker-compose.yml](docker-compose.yml):
@@ -70,7 +66,15 @@ sequenceDiagram
    docker compose up -d
    ```
 
-3. Open a chat with your bot on Telegram and send it a message. ❤️
+3. Open a chat with your bot on Telegram and send it a message. Because your chat is not
+   authorised yet, the bot replies with the id to add:
+
+   ```text
+   This bot is private. If it is yours, add this chat id to bot.allowed-chat-ids: 123456789
+   ```
+
+   Put that number into `BOT_ALLOWED_CHAT_IDS` in your `.env`, run `docker compose up -d`
+   again, and send another message. ❤️
 
 > [!NOTE]
 > The published image is a GraalVM **native image built for x86-64-v2** (e.g. Intel
@@ -86,21 +90,51 @@ for the delivery timestamps shown in Telegram captions.
 
 ## Configuration
 
-All settings live in [application.properties](src/main/resources/application.properties)
-and can be overridden via environment variables (Spring Boot relaxed binding), Java
-system properties, or command-line arguments.
+Settings can be supplied via environment variables (Spring Boot relaxed binding), Java
+system properties, command-line arguments, or an `application-local.properties` file.
+No credentials are shipped in [application.properties](src/main/resources/application.properties):
+the application **refuses to start** rather than pretend to be configured.
 
-| Property            | Environment variable | Description                                                    | Default                           |
-| ------------------- | -------------------- | -------------------------------------------------------------- | --------------------------------- |
-| `lovebox.enabled`   | `LOVEBOX_ENABLED`    | Master switch; `false` = dry-run without any Lovebox API calls | `true`                            |
-| `lovebox.email`     | `LOVEBOX_EMAIL`      | Lovebox account e-mail                                         | –                                 |
-| `lovebox.password`  | `LOVEBOX_PASSWORD`   | Lovebox account password                                       | –                                 |
-| `lovebox.device-id` | `LOVEBOX_DEVICE_ID`  | Device ID registered with your account                         | –                                 |
-| `lovebox.box-id`    | `LOVEBOX_BOX_ID`     | The Lovebox to send messages to                                | –                                 |
-| `lovebox.signature` | `LOVEBOX_SIGNATURE`  | Sender signature shown on the box                              | –                                 |
-| `lovebox.api-url`   | `LOVEBOX_API_URL`    | Lovebox API base URL                                           | `https://app-api.loveboxlove.com` |
-| `bot.username`      | `BOT_USERNAME`       | Telegram bot username (informational)                          | –                                 |
-| `bot.token`         | `BOT_TOKEN`          | Telegram bot API token from `@BotFather`                       | –                                 |
+| Property                | Environment variable     | Description                                                       | Default                           |
+| ----------------------- | ------------------------ | ----------------------------------------------------------------- | --------------------------------- |
+| `lovebox.enabled`       | `LOVEBOX_ENABLED`        | Master switch; `false` = dry-run without any Lovebox API calls     | `true`                            |
+| `lovebox.email`         | `LOVEBOX_EMAIL`          | Lovebox account e-mail                                             | – (required)                      |
+| `lovebox.password`      | `LOVEBOX_PASSWORD`       | Lovebox account password                                           | – (required)                      |
+| `lovebox.device-id`     | `LOVEBOX_DEVICE_ID`      | Device ID registered with your account                             | – (required)                      |
+| `lovebox.box-id`        | `LOVEBOX_BOX_ID`         | The Lovebox to send messages to                                    | – (required)                      |
+| `lovebox.signature`     | `LOVEBOX_SIGNATURE`      | Sender signature shown on the box                                  | –                                 |
+| `lovebox.api-url`       | `LOVEBOX_API_URL`        | Lovebox API base URL                                               | `https://app-api.loveboxlove.com` |
+| `lovebox.poll-interval` | `LOVEBOX_POLL_INTERVAL`  | Delay between delivery-status / hearts polls                       | `20s`                             |
+| `bot.enabled`           | `BOT_ENABLED`            | Master switch for Telegram long-polling                            | `true`                            |
+| `bot.username`          | `BOT_USERNAME`           | Telegram bot username (informational)                              | –                                 |
+| `bot.token`             | `BOT_TOKEN`              | Telegram bot API token from `@BotFather`                           | – (required)                      |
+| `bot.allowed-chat-ids`  | `BOT_ALLOWED_CHAT_IDS`   | Comma-separated chat ids allowed to use the bot                    | – (required)                      |
+| `bot.echo-mode`         | `BOT_ECHO_MODE`          | `SENDER` echoes to the sender, `ALL_ALLOWED` to every allowed chat | `SENDER`                          |
+
+Required settings are enforced while the configuration is bound, so a missing value fails
+startup with a message naming the property rather than surfacing later as an API error.
+
+### Who may use the bot
+
+A Telegram bot accepts messages from anyone who knows its username, so
+`bot.allowed-chat-ids` is **mandatory**: without it, a stranger could print whatever they
+liked on a device standing in your home. Message the bot once and it replies with the chat
+id to add.
+
+Set `bot.echo-mode=ALL_ALLOWED` when two people share one box and both want to see each
+other's notes and their delivery status. With the default `SENDER`, everyone only sees
+their own.
+
+### Limits
+
+| Input                     | Limit                                                                 |
+| ------------------------- | --------------------------------------------------------------------- |
+| Text message              | ~2,500 characters — beyond that it cannot be shown legibly on the box  |
+| Photo                     | 16 MB and 8 megapixels                                                |
+| Telegram caption          | Truncated to Telegram's 1,024 character maximum                       |
+
+Text is word-wrapped and scaled to the largest size that fits, never below 24 pt. Messages
+that would not fit are refused with an explanation instead of being rendered unreadably.
 
 For local development, put your secrets into
 `src/main/resources/application-local.properties` (gitignored) and run with the `local`
@@ -254,9 +288,11 @@ required hints and workarounds — all documented in the sources:
 | Telegram Bot API reflection | `TelegramBotsRuntimeHints` | telegrambots ships no GraalVM metadata; Jackson needs reflective access |
 | JPEG decoding via JNI | `TelegramBotsRuntimeHints` | `JPEGImageReader` resolves fields through JNI at runtime |
 | Lovebox DTO (de)serialization | `NativeHintsConfiguration` | HTTP interface records are bound by Jackson |
-| Bundled fallback image | `ApplicationRuntimeHints` | `lovebox.jpeg` must be included as a native resource |
+| AWT/Java2D and font rasterization | `AwtRuntimeHints` | libawt/libfontmanager resolve classes and fields through JNI |
+| Emoji glyph shaping | `reachability-metadata.json` | HarfBuzz is reached through FFM downcalls, which must be registered |
 | Bot registration | `TelegramBotsConfiguration` / `TelegramBotsRegistrar` | the starter's `ObjectProvider` injection and lambda event listeners silently fail under AOT |
 | Keep-alive | `application.properties` | native polling threads are daemons; without keep-alive the process exits after startup |
+| Runtime verification | `RenderSmokeRunner` | JNI and FFM failures only appear on first use, so `RENDER_SMOKE_ENABLED=true` gates publishing in CI |
 
 ## Project Layout
 
@@ -264,18 +300,21 @@ required hints and workarounds — all documented in the sources:
 src/main/java/com/patbaumgartner/lovebox/telegram/sender/
 ├── LoveboxTelegramSenderApplication.java  # Spring Boot entry point
 ├── config/      # GraalVM native-image hints
-├── image/       # ImageService: renders 1280x960 PNGs (photos, text, fallback)
+├── image/       # ImageService: wraps, sizes and renders 1280x960 PNGs
 ├── lovebox/     # Lovebox API client, DTOs, service, startup verification
-└── telegram/    # LoveboxBot, bot configuration, long-polling registration
+└── telegram/    # LoveboxBot, authorization, delivery tracking, registration
 ```
 
 ## Troubleshooting
 
 | Symptom | Cause / Fix |
 | ------- | ----------- |
+| `bot.allowed-chat-ids must list at least one Telegram chat id` at startup | Expected before first setup — message the bot and add the chat id it replies with |
+| `This bot is private...` reply | That chat is not in `bot.allowed-chat-ids` |
 | `sun.awt.FontConfiguration.head is null` | Run image lacks fonts — use the custom run image from `Dockerfile.base-cnb` |
-| Bot starts but ignores messages | Check `lovebox.enabled` and the bot token; see also the native-image notes above |
+| Bot starts but ignores messages | Check `bot.enabled` and the bot token; see also the native-image notes above |
 | `Lovebox account ... does not exist` in logs | Wrong `lovebox.email` / `lovebox.password` |
+| `That message is too long to show legibly` reply | Over ~2,500 characters; split it into several messages |
 | Photo messages fail, text works (native) | Missing JNI hints for the JPEG decoder — fixed by `TelegramBotsRuntimeHints` |
 | Wrong timestamps in captions | Set the `TZ` environment variable (see `docker-compose.yml`) |
 
