@@ -138,11 +138,14 @@ public class LoveboxService {
 	 * API is unreachable while the container starts (a common ordering on a NAS), the
 	 * next poll picks it up instead of leaving the device unregistered until the next
 	 * restart.
+	 * <p>
+	 * Synchronized because the startup runner and the first scheduled poll otherwise race
+	 * each other into a second, redundant registration round.
 	 * @return {@code true} once the account is verified and the device registered (or the
 	 * integration is disabled), {@code false} if no account exists for the configured
 	 * e-mail address
 	 */
-	public boolean initializeIfNeeded() {
+	public synchronized boolean initializeIfNeeded() {
 		if (!this.properties.enabled() || this.initialized) {
 			return true;
 		}

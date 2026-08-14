@@ -2,6 +2,10 @@ package com.patbaumgartner.lovebox.telegram.sender.lovebox;
 
 import java.time.Instant;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -292,6 +296,41 @@ class LoveboxServiceTests {
 		service.initializeIfNeeded();
 
 		verify(this.restClient, times(1)).checkEmail(any());
+	}
+
+	@Test
+	void initializeRunsOnlyOnceWhenTheStartupRunnerAndThePollRaceEachOther() throws Exception {
+		stubLogin();
+		when(this.restClient.checkEmail(any()))
+			.thenReturn(ResponseEntity.ok(new CheckEmailResponseBody(true, "First")));
+		when(this.restClient.graphql(any(), any()))
+			.thenReturn(ResponseEntity.ok("{\"data\":{\"me\":{\"_id\":\"u\"}}}"));
+		LoveboxService service = enabledService();
+		int threads = 8;
+		CountDownLatch start = new CountDownLatch(1);
+		CountDownLatch done = new CountDownLatch(threads);
+
+		try (ExecutorService executor = Executors.newFixedThreadPool(threads)) {
+			for (int i = 0; i < threads; i++) {
+				executor.execute(() -> {
+					try {
+						start.await();
+						service.initializeIfNeeded();
+					}
+					catch (InterruptedException ex) {
+						Thread.currentThread().interrupt();
+					}
+					finally {
+						done.countDown();
+					}
+				});
+			}
+			start.countDown();
+			assertThat(done.await(10, TimeUnit.SECONDS)).isTrue();
+		}
+
+		verify(this.restClient, times(1)).checkEmail(any());
+		verify(this.restClient, times(3)).graphql(any(), any());
 	}
 
 	@Test
