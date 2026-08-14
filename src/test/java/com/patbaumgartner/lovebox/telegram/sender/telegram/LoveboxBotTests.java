@@ -1,8 +1,15 @@
 package com.patbaumgartner.lovebox.telegram.sender.telegram;
 
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import com.patbaumgartner.lovebox.telegram.sender.image.ImageService;
 import com.patbaumgartner.lovebox.telegram.sender.image.LoveboxImage;
@@ -17,16 +24,19 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import org.telegram.telegrambots.meta.api.methods.GetFile;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageCaption;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
+import org.telegram.telegrambots.meta.api.objects.photo.PhotoSize;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -255,6 +265,23 @@ class LoveboxBotTests {
 	}
 
 	@Test
+	void retriesACaptionEditTelegramRejected() throws TelegramApiException {
+		when(this.imageService.renderText("hello")).thenReturn(IMAGE);
+		when(this.loveboxService.sendImageMessage(IMAGE.dataUri())).thenReturn(SEND_RESULT);
+		stubEcho(42);
+		this.bot.consume(updateWithMessage(textMessage(7L, "hello")));
+		when(this.loveboxService.getMessages()).thenReturn(List.of(new MessageStatus("message-1", "read")));
+		when(this.telegramClient.execute(any(EditMessageCaption.class))).thenThrow(new TelegramApiException("offline"))
+			.thenReturn(null);
+
+		this.bot.updateDeliveryStatuses();
+		this.bot.updateDeliveryStatuses();
+		this.bot.updateDeliveryStatuses();
+
+		verify(this.telegramClient, times(2)).execute(any(EditMessageCaption.class));
+	}
+
+	@Test
 	void neverRewritesSquareBracketsInsideTheSendersOwnText() throws TelegramApiException {
 		when(this.imageService.renderText("meeting [today]. bring cake")).thenReturn(IMAGE);
 		when(this.loveboxService.sendImageMessage(IMAGE.dataUri())).thenReturn(SEND_RESULT);
@@ -341,6 +368,97 @@ class LoveboxBotTests {
 		this.bot.announceWaterfallOfHearts();
 
 		verifyNoInteractions(this.telegramClient);
+	}
+
+	@Test
+	void announceWaterfallOfHeartsNotifiesEachChatOnlyOnce() throws TelegramApiException {
+		this.bot = botWith(properties(EchoMode.SENDER, 7L, 8L));
+		when(this.loveboxService.pendingHeart()).thenReturn("heart-1");
+		when(this.telegramClient.execute(any(SendMessage.class))).thenAnswer(invocation -> {
+			SendMessage sent = invocation.getArgument(0);
+			if ("8".equals(sent.getChatId())) {
+				throw new TelegramApiException("offline");
+			}
+			return null;
+		});
+
+		this.bot.announceWaterfallOfHearts();
+		this.bot.announceWaterfallOfHearts();
+
+		ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+		verify(this.telegramClient, times(3)).execute(captor.capture());
+		assertThat(captor.getAllValues()).extracting(SendMessage::getChatId).containsExactlyInAnyOrder("7", "8", "8");
+		verify(this.loveboxService, never()).acknowledgeHeart(any());
+	}
+
+	@Test
+	void announceWaterfallOfHeartsAcknowledgesOnceEveryChatWasReached() throws TelegramApiException {
+		this.bot = botWith(properties(EchoMode.SENDER, 7L, 8L));
+		when(this.loveboxService.pendingHeart()).thenReturn("heart-1");
+		when(this.telegramClient.execute(any(SendMessage.class))).thenThrow(new TelegramApiException("offline"))
+			.thenReturn(null);
+
+		this.bot.announceWaterfallOfHearts();
+		this.bot.announceWaterfallOfHearts();
+
+		verify(this.loveboxService).acknowledgeHeart("heart-1");
+		verify(this.telegramClient, times(3)).execute(any(SendMessage.class));
+	}
+
+	@Test
+	void putsAPhotoOnTheLoveboxAndLeavesNoTemporaryFileBehind() throws Exception {
+		stubPhotoDownload(new ByteArrayInputStream(new byte[] { 1, 2, 3 }));
+		when(this.imageService.renderPhoto(any(File.class), eq("look at this"))).thenReturn(IMAGE);
+		when(this.loveboxService.sendImageMessage(IMAGE.dataUri())).thenReturn(SEND_RESULT);
+		stubEcho(42);
+
+		this.bot.consume(updateWithMessage(photoMessage(7L, "look at this")));
+
+		assertThat(capturePhoto().getChatId()).isEqualTo("7");
+		assertThat(leftoverTempFiles()).isEmpty();
+	}
+
+	@Test
+	void leavesNoTemporaryFileBehindWhenTheDownloadFails() throws Exception {
+		stubGetFile();
+		when(this.telegramClient.downloadFileAsStream("photos/file_1.jpg"))
+			.thenThrow(new TelegramApiException("connection reset"));
+
+		this.bot.consume(updateWithMessage(photoMessage(7L, "look at this")));
+
+		assertThat(captureText().getText()).contains("could not process");
+		assertThat(leftoverTempFiles()).isEmpty();
+		verifyNoInteractions(this.loveboxService);
+	}
+
+	private static Message photoMessage(long chatId, String caption) {
+		Message message = mock(Message.class);
+		when(message.getChatId()).thenReturn(chatId);
+		lenient().when(message.getText()).thenReturn(null);
+		lenient().when(message.hasPhoto()).thenReturn(true);
+		lenient().when(message.getCaption()).thenReturn(caption);
+		PhotoSize photoSize = mock(PhotoSize.class);
+		lenient().when(photoSize.getFileId()).thenReturn("file-1");
+		lenient().when(message.getPhoto()).thenReturn(List.of(photoSize));
+		return message;
+	}
+
+	private void stubGetFile() throws TelegramApiException {
+		org.telegram.telegrambots.meta.api.objects.File file = mock(
+				org.telegram.telegrambots.meta.api.objects.File.class);
+		when(file.getFilePath()).thenReturn("photos/file_1.jpg");
+		when(this.telegramClient.execute(any(GetFile.class))).thenReturn(file);
+	}
+
+	private void stubPhotoDownload(InputStream content) throws TelegramApiException {
+		stubGetFile();
+		when(this.telegramClient.downloadFileAsStream("photos/file_1.jpg")).thenReturn(content);
+	}
+
+	private static List<Path> leftoverTempFiles() throws IOException {
+		try (Stream<Path> files = Files.list(Path.of(System.getProperty("java.io.tmpdir")))) {
+			return files.filter(file -> file.getFileName().toString().startsWith("lovebox-photo")).toList();
+		}
 	}
 
 	@Test
