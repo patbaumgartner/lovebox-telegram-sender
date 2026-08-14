@@ -12,7 +12,7 @@ import org.springframework.util.ClassUtils;
 /**
  * Registers GraalVM native-image reflection hints for the Telegram Bot API types.
  * <p>
- * {@code org.telegram:telegrambots-*:10.0.0} does not ship GraalVM reachability metadata.
+ * {@code org.telegram:telegrambots-*:10.2.0} does not ship GraalVM reachability metadata.
  * The Bot API request and response objects under
  * {@code org.telegram.telegrambots.meta.api} are (de)serialised with Jackson, which needs
  * reflective access to their constructors, fields and accessors at runtime. Without these
