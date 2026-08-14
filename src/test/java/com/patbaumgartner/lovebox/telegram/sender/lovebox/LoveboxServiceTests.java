@@ -87,6 +87,22 @@ class LoveboxServiceTests {
 	}
 
 	@Test
+	void sendImageMessageKeepsTheMessageWhenTheApiReportsAnUnreadableDate() {
+		stubLogin();
+		String json = """
+				{"data":{"sendPixNote":{"_id":"message-1",
+				"statusList":[{"label":"sending","date":"01/01/2023 17:55"}]}}}
+				""";
+		when(this.restClient.graphql(any(), any())).thenReturn(ResponseEntity.ok(json));
+
+		SendResult result = enabledService().sendImageMessage("data:image/png;base64,AAAA");
+
+		assertThat(result.messageId()).isEqualTo("message-1");
+		assertThat(result.status()).isEqualTo("sending");
+		assertThat(result.sentAt()).isNotNull();
+	}
+
+	@Test
 	void sendImageMessageFailsLoudlyOnMalformedResponse() {
 		stubLogin();
 		when(this.restClient.graphql(any(), any())).thenReturn(ResponseEntity.ok("{\"data\":{}}"));
@@ -168,6 +184,19 @@ class LoveboxServiceTests {
 		assertThatThrownBy(service::getMessages).isInstanceOf(HttpClientErrorException.class);
 
 		verify(this.restClient, times(1)).graphql(any(), any());
+	}
+
+	@Test
+	void rejectedCredentialsAreNotRetriedAsAnExpiredToken() {
+		HttpClientErrorException unauthorized = HttpClientErrorException.create(HttpStatus.UNAUTHORIZED, "Unauthorized",
+				HttpHeaders.EMPTY, new byte[0], null);
+		when(this.restClient.loginWithPassword(any())).thenThrow(unauthorized);
+		LoveboxService service = enabledService();
+
+		assertThatThrownBy(service::getMessages).isInstanceOf(HttpClientErrorException.class);
+
+		verify(this.restClient, times(1)).loginWithPassword(any());
+		verify(this.restClient, never()).graphql(any(), any());
 	}
 
 	@Test
