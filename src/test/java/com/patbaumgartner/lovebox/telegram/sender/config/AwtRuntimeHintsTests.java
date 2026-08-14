@@ -17,6 +17,8 @@ class AwtRuntimeHintsTests {
 				// JPEG decoding
 				"com.sun.imageio.plugins.jpeg.JPEGImageReader", "javax.imageio.plugins.jpeg.JPEGQTable",
 				"javax.imageio.plugins.jpeg.JPEGHuffmanTable",
+				// JPEG encoding
+				"com.sun.imageio.plugins.jpeg.JPEGImageWriter", "javax.imageio.stream.ImageOutputStream",
 				// Raster fields accessed natively (e.g. ByteComponentRaster.data)
 				"sun.awt.image.ByteComponentRaster", "sun.awt.image.IntegerComponentRaster",
 				"sun.awt.image.SunWritableRaster",
