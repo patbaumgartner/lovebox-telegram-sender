@@ -22,7 +22,7 @@
     <imgscalr.version>4.2</imgscalr.version>
     <jacoco.version>0.8.15</jacoco.version>
     <java.version>25</java.version>
-    <spring-javaformat-maven-plugin.version>0.0.47</spring-javaformat-maven-plugin.version>
+    <spring-javaformat-maven-plugin.version>0.0.48</spring-javaformat-maven-plugin.version>
     <telegrambots.version>10.2.0</telegrambots.version>
 
     <!-- Code Quality & POM tooling -->
