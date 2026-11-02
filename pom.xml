@@ -20,7 +20,7 @@
   <properties>
     <!-- Project properties for dependency management -->
     <imgscalr.version>4.2</imgscalr.version>
-    <jacoco.version>0.8.15</jacoco.version>
+    <jacoco.version>0.8.16</jacoco.version>
     <java.version>25</java.version>
     <spring-javaformat-maven-plugin.version>0.0.48</spring-javaformat-maven-plugin.version>
     <telegrambots.version>10.3.0</telegrambots.version>
