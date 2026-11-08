@@ -110,18 +110,27 @@ jobs:
 
       # Run image must be pushed before the native build: the buildpack pulls it
       # via runImage/pullPolicy=IF_NOT_PRESENT configured in pom.xml.
-      - name: Build & push run image
+      # NOTE: build with `--load` (single image) and push with plain `docker push`.
+      # `docker/build-push-action` with `push: true` emits a multi-platform manifest
+      # list, which the paketo creator cannot consume as a single linux/amd64 base
+      # image ("no suitable export target found: ... does not provide the specified
+      # platform (linux/amd64)").
+      - name: Build run image (single platform, load into daemon)
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: ./Dockerfile.base-cnb
-          push: true
-          platforms: linux/amd64
+          push: false
+          load: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/lovebox-telegram-sender-run:${{ steps.version.outputs.version }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/lovebox-telegram-sender-run:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - name: Tag and push run image
+        run: |
+          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/lovebox-telegram-sender-run:${{ steps.version.outputs.version }} ${{ secrets.DOCKERHUB_USERNAME }}/lovebox-telegram-sender-run:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/lovebox-telegram-sender-run:${{ steps.version.outputs.version }}
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/lovebox-telegram-sender-run:latest
 
       # -Pnative + BP_NATIVE_IMAGE=true compile a GraalVM native image (x86-64-v2).
       # Built locally first so the render smoke test gates publishing: JPEG JNI
