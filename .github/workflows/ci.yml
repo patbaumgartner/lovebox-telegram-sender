@@ -116,6 +116,7 @@ jobs:
           context: .
           file: ./Dockerfile.base-cnb
           push: true
+          platforms: linux/amd64
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/lovebox-telegram-sender-run:${{ steps.version.outputs.version }}
             ${{ secrets.DOCKERHUB_USERNAME }}/lovebox-telegram-sender-run:latest
