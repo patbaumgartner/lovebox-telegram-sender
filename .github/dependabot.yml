@@ -5,7 +5,7 @@ updates:
   schedule:
     interval: weekly
     day: monday
-    time: "06:00"
+    time: 06:00
     timezone: Europe/Zurich
   open-pull-requests-limit: 10
   reviewers:
@@ -23,14 +23,10 @@ updates:
   schedule:
     interval: weekly
     day: monday
-    time: "06:00"
+    time: 06:00
     timezone: Europe/Zurich
   open-pull-requests-limit: 5
   groups:
-    # codeql-action/init and codeql-action/analyze must always run the same
-    # version; bumped in separate pull requests, the first one merged fails the
-    # CodeQL workflow with "Loaded a configuration file for version X, but
-    # running version Y".
     codeql-action:
       patterns:
       - github/codeql-action*
@@ -44,3 +40,7 @@ updates:
   labels:
   - dependencies
   - github-actions
+groups:
+  multi-step-actions:
+    patterns:
+    - github/codeql-action/*
